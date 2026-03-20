@@ -1,0 +1,13 @@
+# Example application.properties
+# Sao chép file này thành application.properties và điền thông tin thật của bạn.
+
+spring.application.name=carbooking
+
+# MongoDB Configuration
+spring.data.mongodb.uri=mongodb://localhost:27017/carbooking
+
+# Server Configuration
+server.port=8080
+
+# Security (Nếu có dùng JWT hoặc các secret khác sau này)
+# app.jwtSecret=your_jwt_secret_here
