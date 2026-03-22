@@ -197,4 +197,13 @@ public class WalletService {
         return walletTransactionRepository
             .findByUserIdOrderByCreatedAtDesc(userId);
     }
+
+    // ----------------------------------------------------------------
+    // CHỨC NĂNG 27: Lấy số dư ví
+    // ----------------------------------------------------------------
+    public Double getWalletBalance(String userId) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
+        return user.getWalletBalance();
+    }
 }

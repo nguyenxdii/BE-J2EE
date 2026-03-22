@@ -43,6 +43,24 @@ public class WalletController {
         return ResponseEntity.ok("OK");
     }
 
+    // GET /api/wallet/balance — lấy số dư ví (cần đăng nhập)
+    @GetMapping("/balance")
+    public ResponseEntity<ApiResponse<Double>> getBalance(
+            @AuthenticationPrincipal UserDetails userDetails) {
+
+        Double balance = walletService.getWalletBalance(userDetails.getUsername());
+        return ResponseEntity.ok(ApiResponse.success("Số dư tài khoản", balance));
+    }
+
+    // POST /api/wallet/confirm — Frontend gọi để cập nhật trạng thái ngay sau callback
+    @PostMapping("/confirm")
+    public ResponseEntity<ApiResponse<Object>> confirmTransaction(
+            @RequestBody Map<String, String> params) {
+        
+        walletService.handleMomoCallback(params);
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật trạng thái giao dịch", null));
+    }
+
     // GET /api/wallet/transactions — lịch sử giao dịch (cần đăng nhập)
     @GetMapping("/transactions")
     public ResponseEntity<ApiResponse<List<WalletTransaction>>> getTransactions(

@@ -22,23 +22,27 @@ public class DataSeeder implements CommandLineRunner {
     private final VehicleRepository vehicleRepository;
     private final OrderRepository orderRepository;
     private final DepositListingRepository depositListingRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
         System.out.println("🌱 Kiểm tra và nạp dữ liệu mẫu...");
 
-        if (userRepository.count() == 0) seedUsers();
-        if (categoryRepository.count() == 0) seedCategories();
-        if (vehicleRepository.count() == 0) seedVehicles();
-
-        // Luôn làm sạch và nạp lại Order + DepositListing mẫu để dễ test
         depositListingRepository.deleteAll();
+        walletTransactionRepository.deleteAll();
         orderRepository.deleteAll();
+        vehicleRepository.deleteAll();
+        categoryRepository.deleteAll();
+        userRepository.deleteAll();
+
+        seedUsers();
+        seedCategories();
+        seedVehicles();
         seedOrders();
         seedListings();
 
-        System.out.println("✅ Hoàn tất quá trình nạp dữ liệu mẫu!");
+        System.out.println("✅ Hoàn tất quá trình làm sạch và nạp lại dữ liệu mẫu!");
     }
 
     // ==================== USERS ====================
@@ -68,6 +72,19 @@ public class DataSeeder implements CommandLineRunner {
         user1.setWalletBalance(500000.0);
         user1.setIdentity(makeVerifiedIdentity());
         userRepository.save(user1);
+
+        WalletTransaction tx1 = new WalletTransaction();
+        tx1.setUserId(user1.getId());
+        tx1.setType(TransactionType.DEPOSIT);
+        tx1.setAmount(500000.0);
+        tx1.setBalanceBefore(0.0);
+        tx1.setBalanceAfter(500000.0);
+        tx1.setRefType("WALLET");
+        tx1.setRefId("MOCK-DEPOSIT-1");
+        tx1.setDescription("Nạp tiền vào ví qua Momo (Dữ liệu mẫu)");
+        tx1.setStatus(TransactionStatus.SUCCESS);
+        tx1.setCreatedAt(java.time.LocalDateTime.now().minusHours(2));
+        walletTransactionRepository.save(tx1);
 
         // User 2 — verified
         User user2 = new User();
