@@ -2,12 +2,12 @@ package com.j2ee.carbooking.repository;
 
 import com.j2ee.carbooking.model.Notification;
 import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository
 public interface NotificationRepository extends MongoRepository<Notification, String> {
+    // Lấy tất cả thông báo của user, mới nhất trước
     List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
-    long countByUserIdAndIsReadFalse(String userId);
+    // Đếm thông báo chưa đọc — hiển thị badge đỏ trên navbar
+    long countByUserIdAndIsRead(String userId, Boolean isRead);
 }

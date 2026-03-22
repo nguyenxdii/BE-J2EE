@@ -147,10 +147,10 @@ public class DataSeeder implements CommandLineRunner {
     // ==================== VEHICLES ====================
 
     private void seedVehicles() {
-        String catSo   = categoryRepository.findByName("Xe số").getId();
-        String catGa   = categoryRepository.findByName("Xe ga").getId();
-        String catCon  = categoryRepository.findByName("Xe côn tay").getId();
-        String catDien = categoryRepository.findByName("Xe điện").getId();
+        String catSo   = categoryRepository.findByName("Xe số").orElseThrow().getId();
+        String catGa   = categoryRepository.findByName("Xe ga").orElseThrow().getId();
+        String catCon  = categoryRepository.findByName("Xe côn tay").orElseThrow().getId();
+        String catDien = categoryRepository.findByName("Xe điện").orElseThrow().getId();
 
         vehicleRepository.saveAll(List.of(
 
