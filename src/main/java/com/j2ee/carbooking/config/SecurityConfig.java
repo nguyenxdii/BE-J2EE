@@ -42,6 +42,7 @@ public class SecurityConfig {
                     "/api/vehicles/**",
                     "/api/categories/**",
                     "/api/reviews/vehicle/**",
+                    "/api/wallet/momo/callback",
                     "/error"
                 ).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/deposits/listings").permitAll()

@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -35,6 +36,7 @@ public class DataSeeder implements CommandLineRunner {
         depositListingRepository.deleteAll();
         orderRepository.deleteAll();
         seedOrders();
+        seedListings();
 
         System.out.println("✅ Hoàn tất quá trình nạp dữ liệu mẫu!");
     }
@@ -356,5 +358,41 @@ public class DataSeeder implements CommandLineRunner {
         order.setPaymentMethod(PaymentMethod.WALLET);
         order.setIsTransferred(false);
         return order;
+    }
+
+    private void seedListings() {
+        Order o1 = orderRepository.findByOrderCode("ORD-AN-OK-01").orElseThrow();
+        Vehicle v1 = vehicleRepository.findById(o1.getVehicleId()).orElseThrow();
+
+        DepositListing listing = new DepositListing();
+        listing.setSellerId(o1.getUserId());
+        listing.setOrderId(o1.getId());
+        listing.setVehicleId(o1.getVehicleId());
+        listing.setOriginalDeposit(o1.getDepositAmount());
+        listing.setSellingPrice(o1.getDepositAmount() * 0.6); // 60%
+        listing.setPlatformFee(o1.getDepositAmount() * 0.4);
+        listing.setExpiredAt(o1.getStartDate().atStartOfDay().minusHours(24));
+        listing.setStatus(DepositListingStatus.OPEN);
+
+        depositListingRepository.save(listing);
+
+        // --- TẠO BÀI ĐĂNG ĐÃ HẾT HẠN (Để test Scheduler) ---
+        Order o2 = orderRepository.findByOrderCode("ORD-AN-EXPIRED").orElseThrow();
+        DepositListing expiredListing = new DepositListing();
+        expiredListing.setSellerId(o2.getUserId());
+        expiredListing.setOrderId(o2.getId());
+        expiredListing.setVehicleId(o2.getVehicleId());
+        expiredListing.setOriginalDeposit(o2.getDepositAmount());
+        expiredListing.setSellingPrice(o2.getDepositAmount() * 0.6);
+        expiredListing.setPlatformFee(o2.getDepositAmount() * 0.4);
+        // Đặt hết hạn vào 1 giờ trước
+        expiredListing.setExpiredAt(LocalDateTime.now().minusHours(1));
+        expiredListing.setStatus(DepositListingStatus.OPEN);
+
+        depositListingRepository.save(expiredListing);
+
+        System.out.println("  ✔ Đã tạo 1 bài đăng suất cọc mẫu:");
+        System.out.println("    - Của An (OPEN): " + listing.getId() + " cho xe " + v1.getName());
+        System.out.println("    - Của An (Hết hạn - Chờ quét): " + expiredListing.getId());
     }
 }

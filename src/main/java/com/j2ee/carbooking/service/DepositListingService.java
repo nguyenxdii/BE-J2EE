@@ -1,16 +1,10 @@
 package com.j2ee.carbooking.service;
 
-import com.j2ee.carbooking.dto.request.CreateDepositListingRequest;
-import com.j2ee.carbooking.dto.response.DepositListingResponse;
-import com.j2ee.carbooking.enums.DepositListingStatus;
-import com.j2ee.carbooking.enums.NotificationType;
-import com.j2ee.carbooking.enums.OrderStatus;
-import com.j2ee.carbooking.model.DepositListing;
-import com.j2ee.carbooking.model.Order;
-import com.j2ee.carbooking.model.Vehicle;
-import com.j2ee.carbooking.repository.DepositListingRepository;
-import com.j2ee.carbooking.repository.OrderRepository;
-import com.j2ee.carbooking.repository.VehicleRepository;
+import com.j2ee.carbooking.dto.request.*;
+import com.j2ee.carbooking.dto.response.*;
+import com.j2ee.carbooking.enums.*;
+import com.j2ee.carbooking.model.*;
+import com.j2ee.carbooking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -26,6 +20,9 @@ public class DepositListingService {
     private final DepositListingRepository depositListingRepository;
     private final OrderRepository orderRepository;
     private final VehicleRepository vehicleRepository;
+    private final UserRepository userRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
+    private final MomoService momoService;
     private final NotificationService notificationService;
 
     // Tỉ lệ người bán nhận được — 60% tiền cọc gốc
@@ -139,6 +136,232 @@ public class DepositListingService {
             })
             .filter(r -> r != null)
             .collect(Collectors.toList());
+    }
+
+    // ----------------------------------------------------------------
+    // CHỨC NĂNG 24: Xoá bài đăng suất cọc (Hủy bài)
+    // ----------------------------------------------------------------
+    public void cancelListing(String userId, String listingId) {
+
+        // 1. Tìm bài đăng, kiểm tra tồn tại
+        DepositListing listing = depositListingRepository.findById(listingId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy bài đăng suất cọc"));
+
+        // 2. Chỉ người đăng mới được xoá
+        if (!listing.getSellerId().equals(userId)) {
+            throw new RuntimeException("Bạn không có quyền xoá bài đăng này");
+        }
+
+        // 3. Chỉ xoá được khi bài đang OPEN
+        if (listing.getStatus() != DepositListingStatus.OPEN) {
+            throw new RuntimeException(
+                "Chỉ có thể xoá bài đăng đang ở trạng thái OPEN");
+        }
+
+        // 4. Đổi status → CANCELLED
+        listing.setStatus(DepositListingStatus.CANCELLED);
+        depositListingRepository.save(listing);
+
+        // 5. Gửi thông báo cho A
+        Vehicle vehicle = vehicleRepository.findById(listing.getVehicleId())
+            .orElse(null);
+        String vehicleName = vehicle != null ? vehicle.getName() : "xe";
+
+        notificationService.create(
+            userId,
+            "Bài đăng suất cọc đã bị xoá",
+            "Bạn đã xoá bài đăng suất cọc xe " + vehicleName
+                + ". Lưu ý: tiền cọc sẽ mất nếu bạn không đến nhận xe.",
+            NotificationType.DEPOSIT_LISTING,
+            listingId
+        );
+    }
+
+    // ----------------------------------------------------------------
+    // CHỨC NƠNG 26: Mua suất cọc
+    // ----------------------------------------------------------------
+    public BuyDepositListingResponse buyListing(String buyerId,
+                                                 BuyDepositListingRequest request)
+            throws Exception {
+
+        // 1. Tìm bài đăng
+        DepositListing listing = depositListingRepository
+            .findById(request.getListingId())
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy bài đăng suất cọc"));
+
+        // 2. Bài phải đang OPEN
+        if (listing.getStatus() != DepositListingStatus.OPEN) {
+            throw new RuntimeException("Bài đăng này không còn khả dụng");
+        }
+
+        // 3. Chưa hết hạn
+        if (LocalDateTime.now().isAfter(listing.getExpiredAt())) {
+            throw new RuntimeException("Bài đăng này đã hết hạn");
+        }
+
+        // 4. B không được là A
+        if (listing.getSellerId().equals(buyerId)) {
+            throw new RuntimeException("Bạn không thể mua suất cọc của chính mình");
+        }
+
+        // 5. Kiểm tra B đã xác minh CCCD chưa
+        User buyer = userRepository.findById(buyerId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng"));
+
+        if (buyer.getIdentity() == null
+                || buyer.getIdentity().getVerifyStatus()
+                   != com.j2ee.carbooking.enums.VerifyStatus.VERIFIED) {
+            throw new RuntimeException(
+                "Bạn cần xác minh CCCD/GPLX trước khi mua suất cọc");
+        }
+
+        // 6. Lấy thông tin cần thiết
+        Order order = orderRepository.findById(listing.getOrderId())
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+
+        Vehicle vehicle = vehicleRepository.findById(listing.getVehicleId())
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
+
+        User seller = userRepository.findById(listing.getSellerId())
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy người bán"));
+
+        double sellingPrice = listing.getSellingPrice();
+
+        // 7. Xử lý thanh toán
+        if (request.getPaymentMethod() == PaymentMethod.WALLET) {
+            // --- Thanh toán bằng ví ---
+            if (buyer.getWalletBalance() < sellingPrice) {
+                throw new RuntimeException(
+                    "Số dư ví không đủ. Cần "
+                    + String.format("%,.0f", sellingPrice) + "đ, "
+                    + "hiện có " + String.format("%,.0f", buyer.getWalletBalance()) + "đ");
+            }
+
+            // Trừ tiền ví B
+            double buyerBalanceBefore = buyer.getWalletBalance();
+            buyer.setWalletBalance(buyerBalanceBefore - sellingPrice);
+            userRepository.save(buyer);
+
+            // Tạo WalletTransaction cho B (PAY)
+            WalletTransaction txBuy = new WalletTransaction();
+            txBuy.setUserId(buyerId);
+            txBuy.setType(TransactionType.PAY);
+            txBuy.setAmount(sellingPrice);
+            txBuy.setBalanceBefore(buyerBalanceBefore);
+            txBuy.setBalanceAfter(buyer.getWalletBalance());
+            txBuy.setRefType("DEPOSIT_LISTING");
+            txBuy.setRefId(listing.getId());
+            txBuy.setDescription("Mua suất cọc xe " + vehicle.getName());
+            txBuy.setStatus(TransactionStatus.SUCCESS);
+            walletTransactionRepository.save(txBuy);
+
+            // Cộng tiền ví A (sellingPrice — phần A nhận được)
+            double sellerBalanceBefore = seller.getWalletBalance();
+            seller.setWalletBalance(sellerBalanceBefore + sellingPrice);
+            userRepository.save(seller);
+
+            // Tạo WalletTransaction cho A (RECEIVE)
+            WalletTransaction txReceive = new WalletTransaction();
+            txReceive.setUserId(seller.getId());
+            txReceive.setType(TransactionType.RECEIVE);
+            txReceive.setAmount(sellingPrice);
+            txReceive.setBalanceBefore(sellerBalanceBefore);
+            txReceive.setBalanceAfter(seller.getWalletBalance());
+            txReceive.setRefType("DEPOSIT_LISTING");
+            txReceive.setRefId(listing.getId());
+            txReceive.setDescription("Nhận tiền bán suất cọc xe " + vehicle.getName());
+            txReceive.setStatus(TransactionStatus.SUCCESS);
+            walletTransactionRepository.save(txReceive);
+
+            // Hoàn tất sang nhượng
+            completeListing(listing, order, buyer, seller, vehicle);
+
+            // Build response
+            BuyDepositListingResponse res = new BuyDepositListingResponse();
+            res.setListingId(listing.getId());
+            res.setOrderId(order.getId());
+            res.setVehicleName(vehicle.getName());
+            res.setPaidAmount(sellingPrice);
+            res.setPayUrl(null);
+            res.setMessage("Mua suất cọc thành công! Đơn hàng đã được chuyển sang tên bạn.");
+            return res;
+
+        } else if (request.getPaymentMethod() == PaymentMethod.MOMO) {
+            // --- Thanh toán bằng Momo ---
+            // Lưu thông tin pending để xử lý sau khi callback
+            // orderId Momo = "DEPOSIT-{listingId6}-{random}"
+            String momoOrderId = "DEPOSIT-"
+                + listing.getId().substring(0, Math.min(6, listing.getId().length()))
+                + "-" + java.util.UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+            // Tạo WalletTransaction PENDING cho B
+            WalletTransaction txPending = new WalletTransaction();
+            txPending.setUserId(buyerId);
+            txPending.setType(TransactionType.PAY);
+            txPending.setAmount(sellingPrice);
+            txPending.setBalanceBefore(buyer.getWalletBalance());
+            txPending.setBalanceAfter(buyer.getWalletBalance());
+            txPending.setRefType("DEPOSIT_LISTING");
+            txPending.setRefId(momoOrderId);
+            txPending.setDescription("Mua suất cọc xe " + vehicle.getName()
+                + "|LISTING:" + listing.getId()); // encode listingId vào description để dùng lúc callback
+            txPending.setStatus(TransactionStatus.PENDING);
+            walletTransactionRepository.save(txPending);
+
+            String orderInfo = "Mua suat coc xe " + vehicle.getName();
+            String payUrl = momoService.createPaymentUrl(
+                momoOrderId, (long) sellingPrice, orderInfo);
+
+            BuyDepositListingResponse res = new BuyDepositListingResponse();
+            res.setListingId(listing.getId());
+            res.setOrderId(order.getId());
+            res.setVehicleName(vehicle.getName());
+            res.setPaidAmount(sellingPrice);
+            res.setPayUrl(payUrl);
+            res.setMessage("Vui lòng hoàn tất thanh toán Momo để xác nhận mua suất cọc.");
+            return res;
+
+        } else {
+            throw new RuntimeException("Phương thức thanh toán không hỗ trợ cho suất cọc");
+        }
+    }
+
+    // ----------------------------------------------------------------
+    // Helper: hoàn tất sang nhượng sau khi thanh toán xong
+    // ----------------------------------------------------------------
+    public void completeListing(DepositListing listing, Order order,
+                                  User buyer, User seller, Vehicle vehicle) {
+        // 1. Đổi listing → SOLD
+        listing.setStatus(DepositListingStatus.SOLD);
+        listing.setBuyerId(buyer.getId());
+        listing.setSoldAt(LocalDateTime.now());
+        depositListingRepository.save(listing);
+
+        // 2. Sang nhượng đơn hàng: A → B
+        order.setOriginalUserId(seller.getId()); // lưu A gốc
+        order.setUserId(buyer.getId());          // đơn thuộc về B
+        order.setIsTransferred(true);
+        orderRepository.save(order);
+
+        // 3. Thông báo cho B (người mua)
+        notificationService.create(
+            buyer.getId(),
+            "Mua suất cọc thành công",
+            "Bạn đã mua suất cọc xe " + vehicle.getName()
+                + ". Nhớ đến nhận xe vào ngày " + order.getStartDate() + ".",
+            NotificationType.DEPOSIT_LISTING,
+            listing.getId()
+        );
+
+        // 4. Thông báo cho A (người bán)
+        notificationService.create(
+            seller.getId(),
+            "Suất cọc đã được bán",
+            "Suất cọc xe " + vehicle.getName()
+                + " đã được bán thành công. Tiền đã vào ví của bạn.",
+            NotificationType.DEPOSIT_LISTING,
+            listing.getId()
+        );
     }
 
     private DepositListingResponse toResponse(DepositListing listing,

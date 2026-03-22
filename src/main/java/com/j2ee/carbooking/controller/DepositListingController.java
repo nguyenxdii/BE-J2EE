@@ -1,8 +1,7 @@
 package com.j2ee.carbooking.controller;
 
-import com.j2ee.carbooking.dto.request.CreateDepositListingRequest;
-import com.j2ee.carbooking.dto.response.ApiResponse;
-import com.j2ee.carbooking.dto.response.DepositListingResponse;
+import com.j2ee.carbooking.dto.request.*;
+import com.j2ee.carbooking.dto.response.*;
 import com.j2ee.carbooking.service.DepositListingService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -42,5 +41,30 @@ public class DepositListingController {
 
         return ResponseEntity.ok(
             ApiResponse.success("Danh sách suất cọc", data));
+    }
+
+    // DELETE /api/deposits/listings/{id} — xoá bài đăng (cần đăng nhập)
+    @DeleteMapping("/listings/{id}")
+    public ResponseEntity<ApiResponse<?>> cancelListing(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @PathVariable String id) {
+
+        depositListingService.cancelListing(userDetails.getUsername(), id);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Đã xoá bài đăng suất cọc"));
+    }
+
+    // POST /api/deposits/buy — mua suất cọc (cần đăng nhập)
+    @PostMapping("/buy")
+    public ResponseEntity<ApiResponse<BuyDepositListingResponse>> buyListing(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @Valid @RequestBody BuyDepositListingRequest request) throws Exception {
+
+        BuyDepositListingResponse data =
+            depositListingService.buyListing(userDetails.getUsername(), request);
+
+        return ResponseEntity.ok(
+            ApiResponse.success("Xử lý mua suất cọc thành công", data));
     }
 }

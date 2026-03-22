@@ -1,0 +1,157 @@
+package com.j2ee.carbooking.service;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.util.HexFormat;
+import java.util.Map;
+import java.util.UUID;
+
+@Service
+@RequiredArgsConstructor
+public class MomoService {
+
+    @Value("${app.momo.partner-code}")
+    private String partnerCode;
+
+    @Value("${app.momo.access-key}")
+    private String accessKey;
+
+    @Value("${app.momo.secret-key}")
+    private String secretKey;
+
+    @Value("${app.momo.endpoint}")
+    private String endpoint;
+
+    @Value("${app.momo.redirect-url}")
+    private String redirectUrl;
+
+    @Value("${app.momo.ipn-url}")
+    private String ipnUrl;
+
+    @Value("${app.momo.request-type:captureWallet}")
+    private String requestType;
+
+    @Value("${app.momo.payment-code:}")
+    private String paymentCode;
+
+    // Tạo payment URL để redirect user sang Momo
+    public String createPaymentUrl(String orderId, long amount, String orderInfo)
+            throws Exception {
+
+        String requestId = UUID.randomUUID().toString();
+        // Use requestType from config if available
+        String currentRequestType = requestType != null ? requestType : "captureWallet";
+
+        // Chuỗi raw để tạo chữ ký HMAC-SHA256
+        String rawSignature = "accessKey=" + accessKey
+            + "&amount=" + amount
+            + "&extraData="
+            + "&ipnUrl=" + ipnUrl
+            + "&orderId=" + orderId
+            + "&orderInfo=" + orderInfo
+            + "&partnerCode=" + partnerCode
+            + "&redirectUrl=" + redirectUrl
+            + "&requestId=" + requestId
+            + "&requestType=" + currentRequestType;
+
+        String signature = hmacSHA256(rawSignature, secretKey);
+
+        // Build request body
+        Map<String, Object> body = new java.util.HashMap<>();
+        body.put("partnerCode", partnerCode);
+        body.put("requestId", requestId);
+        body.put("amount", amount);
+        body.put("orderId", orderId);
+        body.put("orderInfo", orderInfo);
+        body.put("redirectUrl", redirectUrl);
+        body.put("ipnUrl", ipnUrl);
+        body.put("requestType", currentRequestType);
+        body.put("extraData", "");
+        if (paymentCode != null && !paymentCode.isEmpty()) {
+            body.put("paymentCode", paymentCode);
+        }
+        body.put("lang", "vi");
+        body.put("signature", signature);
+
+        // Gọi Momo API
+        ObjectMapper mapper = new ObjectMapper();
+        String requestBody = mapper.writeValueAsString(body);
+
+        // --- DEBUG MOMO ---
+        System.out.println("--- MOMO DEBUG START ---");
+        System.out.println("Endpoint: " + endpoint);
+        System.out.println("Raw Signature: " + rawSignature);
+        System.out.println("Generated Signature: " + signature);
+        System.out.println("Request Body: " + requestBody);
+        System.out.println("--- MOMO DEBUG END ---");
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+            .uri(URI.create(endpoint))
+            .header("Content-Type", "application/json")
+            .POST(HttpRequest.BodyPublishers.ofString(requestBody))
+            .build();
+
+        HttpResponse<String> response =
+            client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        System.out.println("Momo Response Code: " + response.statusCode());
+        System.out.println("Momo Response Body: " + response.body());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> result =
+            mapper.readValue(response.body(), Map.class);
+
+        // Momo trả về payUrl để redirect user
+        if (result.get("payUrl") == null) {
+            throw new RuntimeException(
+                "Momo tạo payment thất bại: " + result.get("message"));
+        }
+
+        return (String) result.get("payUrl");
+    }
+
+    // Xác minh chữ ký callback từ Momo — tránh giả mạo
+    public boolean verifyCallback(Map<String, String> params) {
+        try {
+            String rawSignature = "accessKey=" + accessKey
+                + "&amount=" + params.get("amount")
+                + "&extraData=" + params.get("extraData")
+                + "&message=" + params.get("message")
+                + "&orderId=" + params.get("orderId")
+                + "&orderInfo=" + params.get("orderInfo")
+                + "&orderType=" + params.get("orderType")
+                + "&partnerCode=" + params.get("partnerCode")
+                + "&payType=" + params.get("payType")
+                + "&requestId=" + params.get("requestId")
+                + "&responseTime=" + params.get("responseTime")
+                + "&resultCode=" + params.get("resultCode")
+                + "&transId=" + params.get("transId");
+
+            String expected = hmacSHA256(rawSignature, secretKey);
+            return expected.equals(params.get("signature"));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    // Hàm tạo chữ ký HMAC-SHA256
+    private String hmacSHA256(String data, String key) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        SecretKeySpec secretKeySpec =
+            new SecretKeySpec(key.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+        mac.init(secretKeySpec);
+        byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+        return HexFormat.of().formatHex(hash);
+    }
+}

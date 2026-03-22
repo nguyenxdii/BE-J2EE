@@ -30,3 +30,11 @@ app.cloudinary.api-secret=your-api-secret
 
 # Frontend URL for CORS
 app.frontend-url=http://localhost:5173
+
+# Momo Payment Config
+app.momo.partner-code=MOMOBKUN20180810
+app.momo.access-key=vLbb89x0ubf9e5mS
+app.momo.secret-key=v96P6UzoT3oBfclHw0Wbo0X3jGAtnK4E
+app.momo.endpoint=https://test-payment.momo.vn/v2/gateway/api/create
+app.momo.redirect-url=http://localhost:5173/wallet/callback
+app.momo.ipn-url=https://your-ngrok-url.ngrok-free.dev/api/wallet/momo/callback
