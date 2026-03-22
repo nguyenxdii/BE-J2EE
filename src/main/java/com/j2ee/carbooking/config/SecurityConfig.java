@@ -42,8 +42,10 @@ public class SecurityConfig {
                     "/api/vehicles/**",
                     "/api/categories/**",
                     "/api/reviews/vehicle/**",
-                    "/api/deposits/listings"
+                    "/api/wallet/momo/callback",
+                    "/error"
                 ).permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/deposits/listings").permitAll()
                 // Chỉ ADMIN mới vào được
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Còn lại phải đăng nhập
@@ -58,7 +60,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of("http://localhost:5173")); // URL FE Vite
+        config.setAllowedOrigins(List.of(
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173",
+            "http://localhost:5174",
+            "http://127.0.0.1:5174"
+        )); // URL FE Vite
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

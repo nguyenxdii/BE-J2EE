@@ -9,6 +9,8 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Component
@@ -18,19 +20,29 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final VehicleRepository vehicleRepository;
+    private final OrderRepository orderRepository;
+    private final DepositListingRepository depositListingRepository;
+    private final WalletTransactionRepository walletTransactionRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
-        if (userRepository.count() > 0) {
-            System.out.println("✅ Data đã tồn tại, bỏ qua seeding.");
-            return;
-        }
-        System.out.println("🌱 Bắt đầu seed data...");
+        System.out.println("🌱 Kiểm tra và nạp dữ liệu mẫu...");
+
+        depositListingRepository.deleteAll();
+        walletTransactionRepository.deleteAll();
+        orderRepository.deleteAll();
+        vehicleRepository.deleteAll();
+        categoryRepository.deleteAll();
+        userRepository.deleteAll();
+
         seedUsers();
         seedCategories();
         seedVehicles();
-        System.out.println("✅ Seed data hoàn tất!");
+        seedOrders();
+        seedListings();
+
+        System.out.println("✅ Hoàn tất quá trình làm sạch và nạp lại dữ liệu mẫu!");
     }
 
     // ==================== USERS ====================
@@ -60,6 +72,19 @@ public class DataSeeder implements CommandLineRunner {
         user1.setWalletBalance(500000.0);
         user1.setIdentity(makeVerifiedIdentity());
         userRepository.save(user1);
+
+        WalletTransaction tx1 = new WalletTransaction();
+        tx1.setUserId(user1.getId());
+        tx1.setType(TransactionType.DEPOSIT);
+        tx1.setAmount(500000.0);
+        tx1.setBalanceBefore(0.0);
+        tx1.setBalanceAfter(500000.0);
+        tx1.setRefType("WALLET");
+        tx1.setRefId("MOCK-DEPOSIT-1");
+        tx1.setDescription("Nạp tiền vào ví qua Momo (Dữ liệu mẫu)");
+        tx1.setStatus(TransactionStatus.SUCCESS);
+        tx1.setCreatedAt(java.time.LocalDateTime.now().minusHours(2));
+        walletTransactionRepository.save(tx1);
 
         // User 2 — verified
         User user2 = new User();
@@ -305,5 +330,86 @@ public class DataSeeder implements CommandLineRunner {
         v.setAvgRating(avgRating);
         v.setTotalReviews(totalReviews);
         return v;
+    }
+
+    // ==================== ORDERS ====================
+
+    private void seedOrders() {
+        User an = userRepository.findByEmail("an.nguyen@gmail.com").orElseThrow();
+        User bich = userRepository.findByEmail("bich.tran@gmail.com").orElseThrow();
+        Vehicle vehicle1 = vehicleRepository.findAll().get(0);
+        Vehicle vehicle2 = vehicleRepository.findAll().get(1);
+
+        // 1. ĐƠN HÀNG HỢP LỆ (Để test Đăng bán thành công)
+        Order o1 = createTestOrder("ORD-AN-OK-01", an.getId(), vehicle1, 5, 8, OrderStatus.CONFIRMED);
+        
+        // 2. ĐƠN HÀNG QUÁ HẠN (Để test lỗi > 24h)
+        // Ngày mai bắt đầu rồi -> Chỉ còn < 24h -> Sẽ báo lỗi khi đăng bán
+        Order o2 = createTestOrder("ORD-AN-EXPIRED", an.getId(), vehicle2, 1, 3, OrderStatus.CONFIRMED);
+
+        // 3. ĐƠN HÀNG CỦA NGƯỜI KHÁC (Để test lỗi Không có quyền)
+        Order o3 = createTestOrder("ORD-BICH-OK-01", bich.getId(), vehicle1, 10, 12, OrderStatus.CONFIRMED);
+
+        orderRepository.saveAll(List.of(o1, o2, o3));
+
+        System.out.println("  ✔ Đã nạp 3 đơn hàng mẫu để test:");
+        System.out.println("    - Của An (Hợp lệ): " + o1.getId());
+        System.out.println("    - Của An (Quá hạn 24h): " + o2.getId());
+        System.out.println("    - Của Bích (Để test quyền): " + o3.getId());
+    }
+
+    private Order createTestOrder(String code, String userId, Vehicle vehicle, 
+                                  int plusDaysStart, int plusDaysEnd, OrderStatus status) {
+        Order order = new Order();
+        order.setOrderCode(code);
+        order.setUserId(userId);
+        order.setVehicleId(vehicle.getId());
+        order.setStartDate(LocalDate.now().plusDays(plusDaysStart));
+        order.setEndDate(LocalDate.now().plusDays(plusDaysEnd));
+        order.setTotalDays(plusDaysEnd - plusDaysStart);
+        order.setRentalPrice(vehicle.getPricePerDay() * (plusDaysEnd - plusDaysStart));
+        order.setDepositAmount(vehicle.getDepositAmount());
+        order.setTotalAmount(order.getRentalPrice() + order.getDepositAmount());
+        order.setStatus(status);
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setPaymentMethod(PaymentMethod.WALLET);
+        order.setIsTransferred(false);
+        return order;
+    }
+
+    private void seedListings() {
+        Order o1 = orderRepository.findByOrderCode("ORD-AN-OK-01").orElseThrow();
+        Vehicle v1 = vehicleRepository.findById(o1.getVehicleId()).orElseThrow();
+
+        DepositListing listing = new DepositListing();
+        listing.setSellerId(o1.getUserId());
+        listing.setOrderId(o1.getId());
+        listing.setVehicleId(o1.getVehicleId());
+        listing.setOriginalDeposit(o1.getDepositAmount());
+        listing.setSellingPrice(o1.getDepositAmount() * 0.6); // 60%
+        listing.setPlatformFee(o1.getDepositAmount() * 0.4);
+        listing.setExpiredAt(o1.getStartDate().atStartOfDay().minusHours(24));
+        listing.setStatus(DepositListingStatus.OPEN);
+
+        depositListingRepository.save(listing);
+
+        // --- TẠO BÀI ĐĂNG ĐÃ HẾT HẠN (Để test Scheduler) ---
+        Order o2 = orderRepository.findByOrderCode("ORD-AN-EXPIRED").orElseThrow();
+        DepositListing expiredListing = new DepositListing();
+        expiredListing.setSellerId(o2.getUserId());
+        expiredListing.setOrderId(o2.getId());
+        expiredListing.setVehicleId(o2.getVehicleId());
+        expiredListing.setOriginalDeposit(o2.getDepositAmount());
+        expiredListing.setSellingPrice(o2.getDepositAmount() * 0.6);
+        expiredListing.setPlatformFee(o2.getDepositAmount() * 0.4);
+        // Đặt hết hạn vào 1 giờ trước
+        expiredListing.setExpiredAt(LocalDateTime.now().minusHours(1));
+        expiredListing.setStatus(DepositListingStatus.OPEN);
+
+        depositListingRepository.save(expiredListing);
+
+        System.out.println("  ✔ Đã tạo 1 bài đăng suất cọc mẫu:");
+        System.out.println("    - Của An (OPEN): " + listing.getId() + " cho xe " + v1.getName());
+        System.out.println("    - Của An (Hết hạn - Chờ quét): " + expiredListing.getId());
     }
 }
