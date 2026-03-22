@@ -21,4 +21,10 @@ public interface DepositListingRepository extends MongoRepository<DepositListing
 
     // Kiểm tra đơn hàng đã có bài đăng chưa
     boolean existsByOrderIdAndStatusIn(String orderId, List<DepositListingStatus> statuses);
+
+    // Lấy danh sách bài OPEN chưa hết hạn — dùng cho marketplace
+    List<DepositListing> findByStatusAndExpiredAtAfter(
+        DepositListingStatus status,
+        LocalDateTime now
+    );
 }

@@ -9,6 +9,7 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Component
@@ -18,19 +19,24 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final CategoryRepository categoryRepository;
     private final VehicleRepository vehicleRepository;
+    private final OrderRepository orderRepository;
+    private final DepositListingRepository depositListingRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
-        if (userRepository.count() > 0) {
-            System.out.println("✅ Data đã tồn tại, bỏ qua seeding.");
-            return;
-        }
-        System.out.println("🌱 Bắt đầu seed data...");
-        seedUsers();
-        seedCategories();
-        seedVehicles();
-        System.out.println("✅ Seed data hoàn tất!");
+        System.out.println("🌱 Kiểm tra và nạp dữ liệu mẫu...");
+
+        if (userRepository.count() == 0) seedUsers();
+        if (categoryRepository.count() == 0) seedCategories();
+        if (vehicleRepository.count() == 0) seedVehicles();
+
+        // Luôn làm sạch và nạp lại Order + DepositListing mẫu để dễ test
+        depositListingRepository.deleteAll();
+        orderRepository.deleteAll();
+        seedOrders();
+
+        System.out.println("✅ Hoàn tất quá trình nạp dữ liệu mẫu!");
     }
 
     // ==================== USERS ====================
@@ -305,5 +311,50 @@ public class DataSeeder implements CommandLineRunner {
         v.setAvgRating(avgRating);
         v.setTotalReviews(totalReviews);
         return v;
+    }
+
+    // ==================== ORDERS ====================
+
+    private void seedOrders() {
+        User an = userRepository.findByEmail("an.nguyen@gmail.com").orElseThrow();
+        User bich = userRepository.findByEmail("bich.tran@gmail.com").orElseThrow();
+        Vehicle vehicle1 = vehicleRepository.findAll().get(0);
+        Vehicle vehicle2 = vehicleRepository.findAll().get(1);
+
+        // 1. ĐƠN HÀNG HỢP LỆ (Để test Đăng bán thành công)
+        Order o1 = createTestOrder("ORD-AN-OK-01", an.getId(), vehicle1, 5, 8, OrderStatus.CONFIRMED);
+        
+        // 2. ĐƠN HÀNG QUÁ HẠN (Để test lỗi > 24h)
+        // Ngày mai bắt đầu rồi -> Chỉ còn < 24h -> Sẽ báo lỗi khi đăng bán
+        Order o2 = createTestOrder("ORD-AN-EXPIRED", an.getId(), vehicle2, 1, 3, OrderStatus.CONFIRMED);
+
+        // 3. ĐƠN HÀNG CỦA NGƯỜI KHÁC (Để test lỗi Không có quyền)
+        Order o3 = createTestOrder("ORD-BICH-OK-01", bich.getId(), vehicle1, 10, 12, OrderStatus.CONFIRMED);
+
+        orderRepository.saveAll(List.of(o1, o2, o3));
+
+        System.out.println("  ✔ Đã nạp 3 đơn hàng mẫu để test:");
+        System.out.println("    - Của An (Hợp lệ): " + o1.getId());
+        System.out.println("    - Của An (Quá hạn 24h): " + o2.getId());
+        System.out.println("    - Của Bích (Để test quyền): " + o3.getId());
+    }
+
+    private Order createTestOrder(String code, String userId, Vehicle vehicle, 
+                                  int plusDaysStart, int plusDaysEnd, OrderStatus status) {
+        Order order = new Order();
+        order.setOrderCode(code);
+        order.setUserId(userId);
+        order.setVehicleId(vehicle.getId());
+        order.setStartDate(LocalDate.now().plusDays(plusDaysStart));
+        order.setEndDate(LocalDate.now().plusDays(plusDaysEnd));
+        order.setTotalDays(plusDaysEnd - plusDaysStart);
+        order.setRentalPrice(vehicle.getPricePerDay() * (plusDaysEnd - plusDaysStart));
+        order.setDepositAmount(vehicle.getDepositAmount());
+        order.setTotalAmount(order.getRentalPrice() + order.getDepositAmount());
+        order.setStatus(status);
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setPaymentMethod(PaymentMethod.WALLET);
+        order.setIsTransferred(false);
+        return order;
     }
 }

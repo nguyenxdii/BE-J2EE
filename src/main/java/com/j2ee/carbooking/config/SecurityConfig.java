@@ -42,8 +42,9 @@ public class SecurityConfig {
                     "/api/vehicles/**",
                     "/api/categories/**",
                     "/api/reviews/vehicle/**",
-                    "/api/deposits/listings"
+                    "/error"
                 ).permitAll()
+                .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/deposits/listings").permitAll()
                 // Chỉ ADMIN mới vào được
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Còn lại phải đăng nhập

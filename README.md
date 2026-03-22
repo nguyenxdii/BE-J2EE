@@ -1,6 +1,6 @@
 # Backend - ShopCar (API Dịch vụ đặt xe)
 
-Phần Backend của dự án ShopCar được xây dựng trên nền tảng Java Spring Boot, cung cấp các API mạnh mẽ cho hệ thống quản lý xe.
+Phần Backend của dự án ShopCar được xây dựng trên nền tảng Java Spring Boot, cung cấp các API mạnh mẽ cho hệ thống quản lý xe và người dùng.
 
 ## 🚀 Hướng dẫn khởi chạy
 
@@ -13,7 +13,7 @@ Phần Backend của dự án ShopCar được xây dựng trên nền tảng Ja
      ```bash
      cp src/main/resources/application.properties.example src/main/resources/application.properties
      ```
-   - Chỉnh sửa URI MongoDB và các thông số cần thiết trong file mới tạo.
+   - Chỉnh sửa URI MongoDB, JWT Secret, và các thông số Cloudinary/Mail trong file mới tạo.
 
 3. **Khởi chạy ứng dụng**:
    - **Windows**: `.\mvnw.cmd spring-boot:run`
@@ -24,25 +24,26 @@ Phần Backend của dự án ShopCar được xây dựng trên nền tảng Ja
 ## 🛠 Công nghệ sử dụng
 - **Framework**: Spring Boot 3.x (Java 17)
 - **Database**: MongoDB (Spring Data MongoDB)
-- **Bảo mật**: Spring Security (CORS & API Authorization)
-- **Tiện ích**: Lombok, MapStruct (nếu có), Validation API
-- **Data Seeding**: Tự động khởi tạo dữ liệu mẫu khi ứng dụng khởi chạy.
+- **Bảo mật**: Spring Security & JWT (Cấu hình RBAC - Role Based Access Control)
+- **Tiện ích**: Lombok, Validation API
+- **Data Seeding**: Tự động khởi tạo dữ liệu mẫu (Admin, User, Cars, Categories) khi ứng dụng chạy lần đầu.
 
 ## 📁 Cấu trúc gói (Packages)
 ```text
 com.j2ee.carbooking/
 ├── config/          # Cấu hình Security, CORS, MongoDB Auditing
-├── controller/      # Các lớp tiếp nhận và xử lý yêu cầu HTTP (REST Endpoints)
-├── dto/             # Data Transfer Objects cho việc truyền gửi dữ liệu
-├── enums/           # Các định nghĩa hằng số (Trạng thái xe, Role người dùng)
+├── controller/      # API Endpoints (Auth, Vehicle, Category, v.v.)
+├── dto/             # Request/Response data objects (AuthRequest, RegisterRequest)
+├── enums/           # Trạng thái xe, Role người dùng (ADMIN, USER)
 ├── model/           # Các thực thể dữ liệu (Entities) lưu trữ trong MongoDB
 ├── repository/      # Giao diện tương tác với cơ sở dữ liệu
-├── security/        # Triển khai các lớp bảo mật chi tiết
-├── service/         # Xử lý logic nghiệp vụ chính của hệ thống
-└── util/            # Các tiện ích bổ trợ (DataSeeder khởi tạo dữ liệu)
+├── security/        # JWT Filter, JwtUtils, UserDetails implementation
+├── service/         # Xử lý logic nghiệp vụ (AuthService, UserService)
+└── util/            # DataSeeder khởi tạo dữ liệu demo
 ```
 
 ## ✨ Điểm nổi bật
-- **Bảo mật**: Cấu hình Spring Security linh hoạt, quản lý quyền truy cập API.
-- **Tự động hóa**: Sử dụng `@EnableMongoAuditing` để hỗ trợ ghi nhận thời gian (CreatedDate, LastModifiedDate).
-- **Dữ liệu**: Cơ chế Data Seeding giúp xây dựng môi trường demo nhanh chóng chỉ sau một lần chạy.
+- **Hệ thống xác thực (Auth)**: Sử dụng JWT (JSON Web Token) để quản lý phiên đăng nhập an toàn.
+- **Phân quyền người dùng**: Phân biệt quyền giữa khách hàng (USER) và người quản trị (ADMIN).
+- **Cấu hình Auditor**: Tự động ghi nhận `createdAt` và `updatedAt` cho mọi bản ghi.
+- **Tương tác linh hoạt**: Hỗ trợ CORS cho phép Frontend React giao tiếp an toàn.
