@@ -22,6 +22,14 @@ public interface OrderRepository extends MongoRepository<Order, String> {
         LocalDate startDate
     );
 
+    // Lấy danh sách order đang chiếm lịch của các xe (phục vụ tìm kiếm xe trống theo ngày)
+    List<Order> findByVehicleIdInAndStatusInAndStartDateLessThanEqualAndEndDateGreaterThanEqual(
+        List<String> vehicleIds,
+        List<OrderStatus> statuses,
+        LocalDate endDate,
+        LocalDate startDate
+    );
+
     // Lấy đơn của user theo trạng thái
     List<Order> findByUserIdAndStatus(String userId, OrderStatus status);
 
