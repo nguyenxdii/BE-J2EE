@@ -49,6 +49,9 @@ public class SecurityConfig {
                 // Chỉ ADMIN mới vào được
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // Còn lại phải đăng nhập
+
+                // Tìm đoạn code tương tự như này và thêm dòng /api/users/**
+                .requestMatchers("/api/auth/**", "/api/users/**").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

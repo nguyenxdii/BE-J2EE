@@ -44,4 +44,6 @@ public class User {
 
     @LastModifiedDate // Spring tự cập nhật mỗi khi save
     private LocalDateTime updatedAt;
-}
+
+   private Long balance = 5000000L; // Mặc định cho 5 triệu để test như Dino muốn
+}
