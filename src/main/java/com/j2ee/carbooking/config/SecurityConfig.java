@@ -1,7 +1,6 @@
 package com.j2ee.carbooking.config;
 
 import com.j2ee.carbooking.security.JwtAuthFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -22,11 +21,14 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-@EnableMethodSecurity   // Bật @PreAuthorize trên controller
-@RequiredArgsConstructor
+@EnableMethodSecurity
 public class SecurityConfig {
 
     private final JwtAuthFilter jwtAuthFilter;
+
+    public SecurityConfig(JwtAuthFilter jwtAuthFilter) {
+        this.jwtAuthFilter = jwtAuthFilter;
+    }
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -36,7 +38,6 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // Public — không cần đăng nhập
                 .requestMatchers(
                     "/api/auth/**",
                     "/api/vehicles/**",
@@ -46,9 +47,7 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/deposits/listings").permitAll()
-                // Chỉ ADMIN mới vào được
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                // Còn lại phải đăng nhập
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -56,7 +55,6 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // Cấu hình CORS cho phép FE (React) gọi API
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
@@ -65,7 +63,7 @@ public class SecurityConfig {
             "http://127.0.0.1:5173",
             "http://localhost:5174",
             "http://127.0.0.1:5174"
-        )); // URL FE Vite
+        ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

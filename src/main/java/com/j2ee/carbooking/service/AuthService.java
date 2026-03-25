@@ -7,19 +7,23 @@ import com.j2ee.carbooking.enums.UserStatus;
 import com.j2ee.carbooking.model.User;
 import com.j2ee.carbooking.repository.UserRepository;
 import com.j2ee.carbooking.security.JwtUtil;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    // Đăng ký — điền form tạo tài khoản luôn
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.jwtUtil = jwtUtil;
+    }
+
+    // Đăng ký
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email đã được sử dụng");
@@ -39,7 +43,7 @@ public class AuthService {
         return new AuthResponse(token, user);
     }
 
-    // Đăng nhập email/mật khẩu
+    // Đăng nhập
     public AuthResponse login(LoginRequest request) {
         User user = userRepository.findByEmail(request.getEmail())
             .orElseThrow(() -> new RuntimeException("Email hoặc mật khẩu không đúng"));

@@ -1,36 +1,45 @@
 package com.j2ee.carbooking.model;
 
-import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Data
 @Document(collection = "reviews")
 public class Review {
 
     @Id
     private String id;
-
-    private String userId; // FK → users._id — người viết đánh giá
-
+    private String userId;
     private String vehicleId;
-    // FK → vehicles._id
-    // Lưu riêng để query danh sách review theo xe nhanh
-    // mà không cần join qua orders
-
     private String orderId;
-    // FK → orders._id
-    // Đánh index unique trên field này
-    // để đảm bảo mỗi đơn chỉ được review đúng 1 lần
-
-    private Integer rating; // Số sao: 1 đến 5
-
-    private String comment; // Nội dung nhận xét
+    private Integer rating;
+    private String comment;
 
     @CreatedDate
     private LocalDateTime createdAt;
-    // Không có updatedAt — review không cho sửa sau khi đã đăng
-}
+
+    public Review() {}
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+
+    public String getUserId() { return userId; }
+    public void setUserId(String userId) { this.userId = userId; }
+
+    public String getVehicleId() { return vehicleId; }
+    public void setVehicleId(String vehicleId) { this.vehicleId = vehicleId; }
+
+    public String getOrderId() { return orderId; }
+    public void setOrderId(String orderId) { this.orderId = orderId; }
+
+    public Integer getRating() { return rating; }
+    public void setRating(Integer rating) { this.rating = rating; }
+
+    public String getComment() { return comment; }
+    public void setComment(String comment) { this.comment = comment; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}

@@ -47,7 +47,7 @@ public class WalletService {
     // ----------------------------------------------------------------
     // CHỨC NĂNG 21: Nạp tiền vào ví — tạo payment URL Momo
     // ----------------------------------------------------------------
-    public String depositViaMomo(String userId, DepositWalletRequest request)
+    public String createDeposit(String userId, DepositWalletRequest request)
             throws Exception {
 
         User user = userRepository.findById(userId)
@@ -196,6 +196,42 @@ public class WalletService {
     public List<WalletTransaction> getTransactionHistory(String userId) {
         return walletTransactionRepository
             .findByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    // ----------------------------------------------------------------
+    // CHỨC NĂNG: Hoàn tiền vào ví (Dùng khi Admin huỷ đơn)
+    // ----------------------------------------------------------------
+    public void refundToWallet(String userId, Double amount, String orderId, String reason) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy user để hoàn tiền"));
+
+        double balanceBefore = user.getWalletBalance();
+        double balanceAfter = balanceBefore + amount;
+        user.setWalletBalance(balanceAfter);
+        userRepository.save(user);
+
+        // Tạo WalletTransaction REFUND
+        WalletTransaction tx = new WalletTransaction();
+        tx.setUserId(userId);
+        tx.setType(TransactionType.REFUND);
+        tx.setAmount(amount);
+        tx.setBalanceBefore(balanceBefore);
+        tx.setBalanceAfter(balanceAfter);
+        tx.setRefType("ORDER");
+        tx.setRefId(orderId);
+        tx.setDescription("Hoàn tiền đơn " + orderId + (reason != null ? ": " + reason : ""));
+        tx.setStatus(TransactionStatus.SUCCESS);
+        walletTransactionRepository.save(tx);
+
+        // Thông báo cho user
+        notificationService.create(
+            user.getId(),
+            "Hoàn tiền thành công",
+            "Bạn đã được hoàn " + String.format("%,.0f", amount) + "đ vào ví. "
+                + "Lý do: " + (reason != null ? reason : "Hủy đơn hàng"),
+            NotificationType.WALLET,
+            orderId
+        );
     }
 
     // ----------------------------------------------------------------

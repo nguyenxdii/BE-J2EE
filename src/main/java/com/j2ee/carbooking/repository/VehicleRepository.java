@@ -11,6 +11,7 @@ public interface VehicleRepository extends MongoRepository<Vehicle, String> {
     Optional<Vehicle> findByLicensePlate(String licensePlate);
     boolean existsByLicensePlate(String licensePlate);
     List<Vehicle> findByCategoryId(String categoryId);
+    long countByCategoryId(String categoryId);
     List<Vehicle> findByStatus(VehicleStatus status);
     // Tìm xe nổi bật cho trang chủ — lấy top avgRating
     List<Vehicle> findTop8ByStatusOrderByAvgRatingDesc(VehicleStatus status);

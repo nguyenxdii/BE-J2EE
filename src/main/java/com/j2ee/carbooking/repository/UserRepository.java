@@ -9,4 +9,7 @@ public interface UserRepository extends MongoRepository<User, String> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
     Optional<User> findByGoogleId(String googleId);
+    
+    long countByCreatedAtBetween(java.time.LocalDateTime start, java.time.LocalDateTime end);
+    long countByIdentityVerifyStatus(com.j2ee.carbooking.enums.VerifyStatus verifyStatus);
 }

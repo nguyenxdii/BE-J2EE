@@ -2,17 +2,20 @@ package com.j2ee.carbooking.controller;
 
 import com.j2ee.carbooking.model.Vehicle;
 import com.j2ee.carbooking.repository.VehicleRepository;
-import lombok.RequiredArgsConstructor;
+
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/vehicles")
-@RequiredArgsConstructor
 public class VehicleController {
 
     private final VehicleRepository vehicleRepository;
+
+    public VehicleController(VehicleRepository vehicleRepository) {
+        this.vehicleRepository = vehicleRepository;
+    }
 
     @GetMapping
     public List<Vehicle> getAllVehicles() {
