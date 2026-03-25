@@ -1,50 +1,53 @@
 package com.j2ee.carbooking.model;
 
 import com.j2ee.carbooking.enums.DepositListingStatus;
-import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
 
-@Data
 @Document(collection = "depositListings")
 public class DepositListing {
 
     @Id
     private String id;
-
-    private String sellerId; // FK → users._id — user A đăng bán
-
-    private String orderId; // FK → orders._id — đơn hàng gốc đang bán suất
-
+    private String sellerId;
+    private String orderId;
     private String vehicleId;
-    // FK → vehicles._id
-    // Lưu riêng để hiển thị thông tin xe trên marketplace
-    // mà không cần join qua orders
-
-    private Double originalDeposit; // Tiền cọc gốc A đã đóng (300k) — snapshot, không thay đổi
-
+    private Double originalDeposit;
     private Double sellingPrice;
-    // Giá bán = 60% của originalDeposit — hệ thống tự tính khi A đăng
-    // Không cho A tự nhập để tránh bán giá cao hơn cọc gốc
-
     private Double platformFee;
-    // Phần nền tảng giữ = originalDeposit - sellingPrice
-    // Lưu lại để thống kê doanh thu từ suất cọc
-
     private LocalDateTime expiredAt;
-    // = startDate của order - 24 tiếng
-    // Scheduler chạy mỗi giờ quét field này
-    // Nếu expiredAt < now() và status = OPEN → đổi thành EXPIRED
-
-    private DepositListingStatus status = DepositListingStatus.OPEN; // Mặc định OPEN khi đăng
-
-    private String buyerId; // FK → users._id — user B, null khi chưa có người mua
-
-    private LocalDateTime soldAt; // Thời điểm B mua thành công — dùng cho thống kê
+    private DepositListingStatus status = DepositListingStatus.OPEN;
+    private String buyerId;
+    private LocalDateTime soldAt;
 
     @CreatedDate
     private LocalDateTime createdAt;
-}
+
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
+    public String getSellerId() { return sellerId; }
+    public void setSellerId(String sellerId) { this.sellerId = sellerId; }
+    public String getOrderId() { return orderId; }
+    public void setOrderId(String orderId) { this.orderId = orderId; }
+    public String getVehicleId() { return vehicleId; }
+    public void setVehicleId(String vehicleId) { this.vehicleId = vehicleId; }
+    public Double getOriginalDeposit() { return originalDeposit; }
+    public void setOriginalDeposit(Double originalDeposit) { this.originalDeposit = originalDeposit; }
+    public Double getSellingPrice() { return sellingPrice; }
+    public void setSellingPrice(Double sellingPrice) { this.sellingPrice = sellingPrice; }
+    public Double getPlatformFee() { return platformFee; }
+    public void setPlatformFee(Double platformFee) { this.platformFee = platformFee; }
+    public LocalDateTime getExpiredAt() { return expiredAt; }
+    public void setExpiredAt(LocalDateTime expiredAt) { this.expiredAt = expiredAt; }
+    public DepositListingStatus getStatus() { return status; }
+    public void setStatus(DepositListingStatus status) { this.status = status; }
+    public String getBuyerId() { return buyerId; }
+    public void setBuyerId(String buyerId) { this.buyerId = buyerId; }
+    public LocalDateTime getSoldAt() { return soldAt; }
+    public void setSoldAt(LocalDateTime soldAt) { this.soldAt = soldAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+}

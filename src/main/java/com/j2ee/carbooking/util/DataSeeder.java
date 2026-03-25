@@ -1,4 +1,3 @@
-// util/DataSeeder.java
 package com.j2ee.carbooking.util;
 
 import com.j2ee.carbooking.enums.*;
@@ -22,298 +21,150 @@ public class DataSeeder implements CommandLineRunner {
     private final VehicleRepository vehicleRepository;
     private final OrderRepository orderRepository;
     private final DepositListingRepository depositListingRepository;
-    private final WalletTransactionRepository walletTransactionRepository;
+    private final NotificationRepository notificationRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
-        System.out.println("🌱 Kiểm tra và nạp dữ liệu mẫu...");
+        System.out.println("🌱 Đang nạp dữ liệu mẫu mới (Tiếng Việt)...");
 
-        depositListingRepository.deleteAll();
-        walletTransactionRepository.deleteAll();
-        orderRepository.deleteAll();
-        vehicleRepository.deleteAll();
-        categoryRepository.deleteAll();
-        userRepository.deleteAll();
+        // Lưu ý: Không dùng deleteAll() theo yêu cầu khách hàng. 
+        // Dữ liệu sẽ được nạp chồng hoặc bổ sung.
 
         seedUsers();
-        seedCategories();
-        seedVehicles();
+        seedCategoriesAndVehicles();
         seedOrders();
         seedListings();
+        seedNotifications();
 
-        System.out.println("✅ Hoàn tất quá trình làm sạch và nạp lại dữ liệu mẫu!");
+        System.out.println("✅ Hoàn tất nạp dữ liệu mẫu!");
     }
 
-    // ==================== USERS ====================
-
     private void seedUsers() {
-        // Admin
-        User admin = new User();
-        admin.setFullName("Admin ShopCar");
-        admin.setEmail("admin@shopcar.com");
-        admin.setPassword(passwordEncoder.encode("123qwe123"));
-        admin.setPhone("0901234567");
-        admin.setAvatar("https://i.pravatar.cc/150?img=1");
-        admin.setRole(Role.ADMIN);
-        admin.setStatus(UserStatus.ACTIVE);
-        admin.setWalletBalance(0.0);
-        userRepository.save(admin);
+        // Tạo Admin nếu chưa có
+        if (userRepository.findByEmail("admin@shopcar.com").isEmpty()) {
+            seedUser("admin@shopcar.com", "Quản trị viên", "123qwe123", "0901234567", 10000000.0, Role.ADMIN, true);
+        }
+        
+        // Tạo User1 nếu chưa có
+        if (userRepository.findByEmail("user1@gmail.com").isEmpty()) {
+            seedUser("user1@gmail.com", "Nguyễn Văn Người Dùng 1", "123qwe123", "0911111111", 5000000.0, Role.USER, true);
+        }
 
-        // User 1 — verified
-        User user1 = new User();
-        user1.setFullName("Nguyễn Văn An");
-        user1.setEmail("an.nguyen@gmail.com");
-        user1.setPassword(passwordEncoder.encode("123456"));
-        user1.setPhone("0912345678");
-        user1.setAvatar("https://i.pravatar.cc/150?img=2");
-        user1.setRole(Role.USER);
-        user1.setStatus(UserStatus.ACTIVE);
-        user1.setWalletBalance(500000.0);
-        user1.setIdentity(makeVerifiedIdentity());
-        userRepository.save(user1);
+        // Tạo User2 nếu chưa có
+        if (userRepository.findByEmail("user2@gmail.com").isEmpty()) {
+            seedUser("user2@gmail.com", "Trần Thị Người Dùng 2", "123qwe123", "0922222222", 8000000.0, Role.USER, true);
+        }
+        
+        System.out.println("  ✔ Đã kiểm tra và nạp tài khoản (Admin, User1, User2)");
+    }
 
-        WalletTransaction tx1 = new WalletTransaction();
-        tx1.setUserId(user1.getId());
-        tx1.setType(TransactionType.DEPOSIT);
-        tx1.setAmount(500000.0);
-        tx1.setBalanceBefore(0.0);
-        tx1.setBalanceAfter(500000.0);
-        tx1.setRefType("WALLET");
-        tx1.setRefId("MOCK-DEPOSIT-1");
-        tx1.setDescription("Nạp tiền vào ví qua Momo (Dữ liệu mẫu)");
-        tx1.setStatus(TransactionStatus.SUCCESS);
-        tx1.setCreatedAt(java.time.LocalDateTime.now().minusHours(2));
-        walletTransactionRepository.save(tx1);
-
-        // User 2 — verified
-        User user2 = new User();
-        user2.setFullName("Trần Thị Bích");
-        user2.setEmail("bich.tran@gmail.com");
-        user2.setPassword(passwordEncoder.encode("123456"));
-        user2.setPhone("0923456789");
-        user2.setAvatar("https://i.pravatar.cc/150?img=5");
-        user2.setRole(Role.USER);
-        user2.setStatus(UserStatus.ACTIVE);
-        user2.setWalletBalance(1200000.0);
-        user2.setIdentity(makeVerifiedIdentity());
-        userRepository.save(user2);
-
-        // User 3 — chờ duyệt CCCD (để admin demo)
-        User user3 = new User();
-        user3.setFullName("Lê Minh Cường");
-        user3.setEmail("cuong.le@gmail.com");
-        user3.setPassword(passwordEncoder.encode("123456"));
-        user3.setPhone("0934567890");
-        user3.setAvatar("https://i.pravatar.cc/150?img=8");
-        user3.setRole(Role.USER);
-        user3.setStatus(UserStatus.ACTIVE);
-        user3.setWalletBalance(0.0);
-        Identity identity3 = new Identity();
-        identity3.setCccdFront("https://placehold.co/400x250?text=CCCD+Mat+Truoc");
-        identity3.setCccdBack("https://placehold.co/400x250?text=CCCD+Mat+Sau");
-        identity3.setDrivingLicense("https://placehold.co/400x250?text=GPLX");
-        identity3.setVerifyStatus(VerifyStatus.PENDING);
-        user3.setIdentity(identity3);
-        userRepository.save(user3);
-
-        // User 4 — bị khoá (để admin demo)
-        User user4 = new User();
-        user4.setFullName("Phạm Thị Dung");
-        user4.setEmail("dung.pham@gmail.com");
-        user4.setPassword(passwordEncoder.encode("123456"));
-        user4.setPhone("0945678901");
-        user4.setAvatar("https://i.pravatar.cc/150?img=9");
-        user4.setRole(Role.USER);
-        user4.setStatus(UserStatus.LOCKED);
-        user4.setWalletBalance(0.0);
-        userRepository.save(user4);
-
-        System.out.println("  ✔ Seeded 1 admin + 4 users");
+    private void seedUser(String email, String name, String pass, String phone, double balance, Role role, boolean verified) {
+        User user = new User();
+        user.setFullName(name);
+        user.setEmail(email);
+        user.setPassword(passwordEncoder.encode(pass));
+        user.setPhone(phone);
+        user.setRole(role);
+        user.setStatus(UserStatus.ACTIVE);
+        user.setWalletBalance(balance);
+        user.setAvatar("https://i.pravatar.cc/150?u=" + email);
+        
+        if (verified) {
+            user.setIdentity(makeVerifiedIdentity());
+        } else {
+            Identity i = new Identity();
+            i.setVerifyStatus(VerifyStatus.PENDING);
+            user.setIdentity(i);
+        }
+        userRepository.save(user);
     }
 
     private Identity makeVerifiedIdentity() {
         Identity i = new Identity();
-        i.setCccdFront("https://placehold.co/400x250?text=CCCD+Mat+Truoc");
-        i.setCccdBack("https://placehold.co/400x250?text=CCCD+Mat+Sau");
-        i.setDrivingLicense("https://placehold.co/400x250?text=GPLX");
+        i.setCccdFront("https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg");
+        i.setCccdBack("https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg");
+        i.setDrivingLicense("https://res.cloudinary.com/demo/image/upload/v1312461204/sample.jpg");
         i.setVerifyStatus(VerifyStatus.VERIFIED);
         return i;
     }
 
-    // ==================== CATEGORIES ====================
+    private void seedCategoriesAndVehicles() {
+        String catGa = getOrCreateCategory("Xe tay ga", "Tiện lợi, sang trọng, cốp rộng", "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=400");
+        String catSo = getOrCreateCategory("Xe số", "Tiết kiệm nhiên liệu, bền bỉ, linh hoạt", "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400");
+        String catCon = getOrCreateCategory("Xe côn tay", "Mạnh mẽ, tốc độ, phong cách thể thao", "https://images.unsplash.com/photo-1609630875171-b1321377ee65?w=400");
 
-    private void seedCategories() {
-        categoryRepository.saveAll(List.of(
-            makeCategory("Xe số",
-                "Xe máy số tiết kiệm nhiên liệu, phù hợp đi phố",
-                "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400"),
-            makeCategory("Xe ga",
-                "Xe tay ga tiện lợi, dễ lái cho mọi người",
-                "https://images.unsplash.com/photo-1568772585407-9361f9bf3a87?w=400"),
-            makeCategory("Xe côn tay",
-                "Xe côn tay mạnh mẽ cho người thích tốc độ",
-                "https://images.unsplash.com/photo-1609630875171-b1321377ee65?w=400"),
-            makeCategory("Xe điện",
-                "Xe điện thân thiện môi trường, chi phí thấp",
-                "https://images.unsplash.com/photo-1593014700857-a2c1d93cf63f?w=400")
-        ));
-        System.out.println("  ✔ Seeded 4 categories");
-    }
+        if (vehicleRepository.count() > 0) {
+            System.out.println("  ⚠ Collection vehicles đã có dữ liệu, bỏ qua bước tạo xe.");
+            return;
+        }
 
-    private Category makeCategory(String name, String description, String image) {
-        Category c = new Category();
-        c.setName(name);
-        c.setDescription(description);
-        c.setImage(image);
-        return c;
-    }
-
-    // ==================== VEHICLES ====================
-
-    private void seedVehicles() {
-        String catSo   = categoryRepository.findByName("Xe số").orElseThrow().getId();
-        String catGa   = categoryRepository.findByName("Xe ga").orElseThrow().getId();
-        String catCon  = categoryRepository.findByName("Xe côn tay").orElseThrow().getId();
-        String catDien = categoryRepository.findByName("Xe điện").orElseThrow().getId();
+        String assetPath = "/src/assets/data/";
 
         vehicleRepository.saveAll(List.of(
-
-            // ---- XE SỐ ----
-            makeVehicle("Honda Wave Alpha 2022", catSo, "Honda", "Wave Alpha", 2022,
-                "51A-12345", 150000.0, 300000.0,
-                "Xe số Honda Wave Alpha đời 2022, tiết kiệm xăng, bền bỉ, phù hợp đi lại hàng ngày.",
-                List.of(
-                    "https://muaxe.minhlongmoto.com/wp-content/uploads/2023/07/anh-xe-honda-wave-alpha-110-1-768x512.jpg",
-                    "https://images2.thanhnien.vn/wave-alpha-2022.jpg"
-                ),
-                "110cc", "Xăng", "Số",
-                VehicleStatus.AVAILABLE, 4.5, 12),
-
-            makeVehicle("Honda Future 125 2023", catSo, "Honda", "Future 125", 2023,
-                "51A-23456", 180000.0, 350000.0,
-                "Future 125 FI đời 2023, động cơ phun xăng điện tử, vận hành êm và tiết kiệm.",
-                List.of(
-                    "https://cdnphoto.dantri.com.vn/thumb_w/960/2023/01/future-125.jpg"
-                ),
-                "125cc", "Xăng", "Số",
-                VehicleStatus.AVAILABLE, 4.3, 8),
-
-            makeVehicle("Yamaha Sirius 2022", catSo, "Yamaha", "Sirius", 2022,
-                "51B-34567", 140000.0, 280000.0,
-                "Sirius RC đời 2022, thiết kế trẻ trung, vận hành ổn định, thích hợp đường phố.",
-                List.of(
-                    "https://yamaha-motor.com.vn/wp-content/uploads/sirius-rc.jpg"
-                ),
-                "115cc", "Xăng", "Số",
-                VehicleStatus.AVAILABLE, 4.2, 6),
-
-            // ---- XE GA ----
-            makeVehicle("Honda Air Blade 2023", catGa, "Honda", "Air Blade", 2023,
-                "51B-45678", 220000.0, 500000.0,
-                "Air Blade 125 đời 2023, thiết kế thể thao, cốp rộng, phanh ABS an toàn.",
-                List.of(
-                    "https://images2.thanhnien.vn/airblade-2023.jpg",
-                    "https://cdnphoto.dantri.com.vn/airblade-125-abs.jpg"
-                ),
-                "125cc", "Xăng", "Tay ga",
-                VehicleStatus.AVAILABLE, 4.8, 20),
-
-            makeVehicle("Honda Vision 2023", catGa, "Honda", "Vision", 2023,
-                "51C-56789", 190000.0, 400000.0,
-                "Vision đời 2023, nhỏ gọn linh hoạt, tiết kiệm nhiên liệu, phù hợp cả nam và nữ.",
-                List.of(
-                    "https://images2.thanhnien.vn/honda-vision-2023.jpg",
-                    "https://cdnphoto.dantri.com.vn/vision-2023.jpg"
-                ),
-                "110cc", "Xăng", "Tay ga",
-                VehicleStatus.AVAILABLE, 4.6, 15),
-
-            makeVehicle("Yamaha Freego 2022", catGa, "Yamaha", "Freego", 2022,
-                "51C-67890", 200000.0, 450000.0,
-                "Freego S ABS đời 2022, cốp chứa đồ lớn, kết nối Bluetooth, phong cách hiện đại.",
-                List.of(
-                    "https://yamaha-motor.com.vn/wp-content/uploads/freego-abs.jpg"
-                ),
-                "125cc", "Xăng", "Tay ga",
-                VehicleStatus.AVAILABLE, 4.4, 9),
-
-            makeVehicle("Yamaha Grande 2023", catGa, "Yamaha", "Grande", 2023,
-                "51D-78901", 210000.0, 480000.0,
-                "Grande Hybrid đời 2023, công nghệ hybrid tiết kiệm xăng đến 30%, sang trọng.",
-                List.of(
-                    "https://yamaha-motor.com.vn/wp-content/uploads/grande-hybrid-2023.jpg"
-                ),
-                "125cc", "Xăng", "Tay ga",
-                VehicleStatus.AVAILABLE, 4.1, 5),
-
-            // ---- XE CÔN TAY ----
-            makeVehicle("Yamaha Exciter 155 2023", catCon, "Yamaha", "Exciter 155", 2023,
-                "51D-89012", 280000.0, 600000.0,
-                "Exciter 155 VVA đời 2023, động cơ 155cc mạnh mẽ, thiết kế thể thao cực ngầu.",
-                List.of(
-                    "https://images2.thanhnien.vn/exciter-155-2023.jpg",
-                    "https://cdnphoto.dantri.com.vn/exciter155-do-den.jpg"
-                ),
-                "155cc", "Xăng", "Côn tay",
-                VehicleStatus.AVAILABLE, 4.9, 25),
-
-            makeVehicle("Honda Winner X 2022", catCon, "Honda", "Winner X", 2022,
-                "51E-90123", 250000.0, 550000.0,
-                "Winner X đời 2022, thiết kế racing, động cơ DOHC mạnh mẽ, phù hợp đường dài.",
-                List.of(
-                    "https://images2.thanhnien.vn/winner-x-2022.jpg",
-                    "https://cdnphoto.dantri.com.vn/winner-x-trang.jpg"
-                ),
-                "150cc", "Xăng", "Côn tay",
-                VehicleStatus.AVAILABLE, 4.7, 18),
-
-            makeVehicle("Suzuki Raider R150 2022", catCon, "Suzuki", "Raider R150", 2022,
-                "51E-01234", 240000.0, 520000.0,
-                "Raider R150 đời 2022, động cơ fuel injection, thiết kế sport mạnh mẽ cá tính.",
-                List.of(
-                    "https://images.suzuki.com.vn/raider-r150-2022.jpg"
-                ),
-                "150cc", "Xăng", "Côn tay",
-                VehicleStatus.AVAILABLE, 4.3, 7),
-
-            // ---- XE ĐIỆN ----
-            makeVehicle("VinFast Theon 2023", catDien, "VinFast", "Theon", 2023,
-                "51F-12345", 160000.0, 350000.0,
-                "VinFast Theon đời 2023, pin lithium bền, sạc nhanh, không tiếng ồn, thân thiện môi trường.",
-                List.of(
-                    "https://images.vinfastauto.com/theon-2023-xanh.jpg",
-                    "https://images.vinfastauto.com/theon-2023-trang.jpg"
-                ),
-                "Electric", "Điện", "Tay ga",
-                VehicleStatus.AVAILABLE, 4.2, 10),
-
-            makeVehicle("VinFast Feliz S 2023", catDien, "VinFast", "Feliz S", 2023,
-                "51F-23456", 150000.0, 320000.0,
-                "Feliz S đời 2023, thiết kế trẻ trung, phạm vi di chuyển lên đến 200km mỗi lần sạc.",
-                List.of(
-                    "https://images.vinfastauto.com/feliz-s-2023.jpg"
-                ),
-                "Electric", "Điện", "Tay ga",
-                VehicleStatus.AVAILABLE, 4.0, 4)
+            // 9 mẫu xe có bộ 3 ảnh
+            makeVehicle("Honda Vision 2024 Trắng", catGa, "Honda", "Vision", 2024, "29A-111.11", 150000.0, 300000.0, "Dòng xe tay ga quốc dân, nhẹ nhàng, tiết kiệm xăng. Phù hợp đi làm, đi chơi trong phố.", 
+                List.of(assetPath + "Honda Vision 2024 white 1.jpg", assetPath + "Honda Vision 2024 white 2.jpg", assetPath + "Honda Vision 2024 white 3.jpg"), 
+                "110cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 1200, "Hà Nội"),
+            
+            makeVehicle("Honda SH 150i 2024 Đen Xám", catGa, "Honda", "SH 150i", 2024, "29B-222.22", 450000.0, 1000000.0, "Mẫu xe tay ga cao cấp nhất, sang trọng và đẳng cấp. Trang bị phanh ABS an toàn.", 
+                List.of(assetPath + "Honda SH150i 2024 black gray 1.png", assetPath + "Honda SH150i 2024 black gray2.jpg", assetPath + "Honda SH150i 2024 black gray3.jpg"), 
+                "150cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 500, "Hồ Chí Minh"),
+            
+            makeVehicle("Honda Air Blade 160 2024", catGa, "Honda", "Air Blade", 2024, "29C-333.33", 250000.0, 500000.0, "Thiết kế thể thao góc cạnh, động cơ 160cc mạnh mẽ vượt trội.", 
+                List.of(assetPath + "Honda Air Blade 160 2024 1.jpg", assetPath + "Honda Air Blade 160 2024 2.jpg", assetPath + "Honda Air Blade 160 2024 3.jpg"), 
+                "160cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 2500, "Đà Nẵng"),
+            
+            makeVehicle("Honda Lead 2023 Bạc", catGa, "Honda", "Lead", 2023, "29D-444.44", 200000.0, 400000.0, "Cốp xe siêu rộng 37 lít, phù hợp cho phái nữ với nhu cầu để nhiều đồ đạc.", 
+                List.of(assetPath + "Honda Lead 2023 silver 1.jpg", assetPath + "Honda Lead 2023 silver 2.jpg", assetPath + "Honda Lead 2023 silver 3.jpg"), 
+                "125cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 4200, "Hà Nội"),
+            
+            makeVehicle("Honda Wave Alpha 2024", catSo, "Honda", "Wave Alpha", 2024, "29E-555.55", 120000.0, 200000.0, "Xe số bền bỉ, tiết kiệm nhiên liệu tối đa, chi phí vận hành cực thấp.", 
+                List.of(assetPath + "Honda Wave Alpha 2024 1.webp", assetPath + "Honda Wave Alpha 2024 2.webp", assetPath + "Honda Wave Alpha 2024 3.png"), 
+                "110cc", "Xăng", "Số chân", VehicleStatus.AVAILABLE, 8000, "Hồ Chí Minh"),
+            
+            makeVehicle("Vespa Primavera S 125 Xanh Mint", catGa, "Vespa", "Primavera", 2024, "29F-666.66", 500000.0, 2000000.0, "Phong cách thời trang Ý huyền thoại, màu sắc trẻ trung độc đáo.", 
+                List.of(assetPath + "Vespa Primavera S 125 mint 1.webp", assetPath + "Vespa Primavera S 125 mint 2.webp", assetPath + "Vespa Primavera S 125 mint 3.webp"), 
+                "125cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 100, "Hà Nội"),
+            
+            makeVehicle("Yamaha Exciter 155 VVA Xanh", catCon, "Yamaha", "Exciter", 2024, "29G-777.77", 300000.0, 600000.0, "Động cơ VVA mạnh mẽ, côn tay mượt mà cho cảm giác lái cực bốc.", 
+                List.of(assetPath + "Yamaha Exciter 155 VVA blue 1.png", assetPath + "Yamaha Exciter 155 VVA blue 2.png", assetPath + "Yamaha Exciter 155 VVA blue 3.png"), 
+                "155cc", "Xăng", "Côn tay", VehicleStatus.AVAILABLE, 6200, "Hồ Chí Minh"),
+            
+            makeVehicle("Yamaha Grande 2024 Trắng", catGa, "Yamaha", "Grande", 2024, "29H-888.88", 220000.0, 500000.0, "Mẫu xe tay ga siêu tiết kiệm xăng, động cơ Hybrid êm ái, nhẹ nhàng.", 
+                List.of(assetPath + "Yamaha Grande 2024 white 1.png", assetPath + "Yamaha Grande 2024 white 2.png", assetPath + "Yamaha Grande 2024 white 3.png"), 
+                "125cc", "Xăng Hybrid", "Tự động", VehicleStatus.AVAILABLE, 1100, "Đà Nẵng"),
+            
+            makeVehicle("Yamaha Janus 2024 Hồng", catGa, "Yamaha", "Janus", 2024, "29K-999.99", 160000.0, 300000.0, "Thiết kế trẻ trung, năng động, linh hoạt di chuyển trong ngõ nhỏ.", 
+                List.of(assetPath + "Yamaha Janus 2024 pink 1.jpg", assetPath + "Yamaha Janus 2024 pink 2.jpg", assetPath + "Yamaha Janus 2024 pink 3.jpg"), 
+                "125cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 5400, "Hà Nội"),
+            
+            // 1 xe duy nhất có 1 ảnh
+            makeVehicle("Honda Air Blade 160 Đặc biệt", catGa, "Honda", "Air Blade", 2024, "29X-000.00", 280000.0, 600000.0, "Phiên bản đặc biệt màu sơn nhám, tem xe thiết kế riêng biệt cực chất.", 
+                List.of(assetPath + "Honda Air Blade 160 Đặc biệt.webp"), 
+                "160cc", "Xăng", "Tự động", VehicleStatus.AVAILABLE, 50, "Cần Thơ")
         ));
-
-        System.out.println("  ✔ Seeded 12 vehicles");
+        
+        System.out.println("  ✔ Đã nạp 3 Danh mục và 10 Phương tiện mới.");
     }
 
-    private Vehicle makeVehicle(
-            String name, String categoryId, String brand,
-            String model, int year, String licensePlate,
-            double pricePerDay, double depositAmount, String description,
-            List<String> images, String engine, String fuelType,
-            String transmission, VehicleStatus status,
-            double avgRating, int totalReviews) {
+    private String getOrCreateCategory(String name, String desc, String img) {
+        return categoryRepository.findByName(name)
+                .map(Category::getId)
+                .orElseGet(() -> {
+                    Category c = new Category();
+                    c.setName(name);
+                    c.setDescription(desc);
+                    c.setImage(img);
+                    return categoryRepository.save(c).getId();
+                });
+    }
 
+    private Vehicle makeVehicle(String name, String categoryId, String brand, String model, int year, String licensePlate, double pricePerDay, double depositAmount, String description, List<String> images, String engine, String fuelType, String transmission, VehicleStatus status, int mileage, String location) {
         Specs specs = new Specs();
         specs.setEngine(engine);
         specs.setFuelType(fuelType);
         specs.setTransmission(transmission);
-
         Vehicle v = new Vehicle();
         v.setName(name);
         v.setCategoryId(categoryId);
@@ -327,89 +178,85 @@ public class DataSeeder implements CommandLineRunner {
         v.setImages(images);
         v.setSpecs(specs);
         v.setStatus(status);
-        v.setAvgRating(avgRating);
-        v.setTotalReviews(totalReviews);
+        v.setAvgRating(0.0); // Khách yêu cầu tự đánh giá, set mặc định 0
+        v.setTotalReviews(0);  // Khách yêu cầu tự đánh giá, set mặc định 0
+        v.setMileage(mileage);
+        v.setLocation(location);
         return v;
     }
 
-    // ==================== ORDERS ====================
-
     private void seedOrders() {
-        User an = userRepository.findByEmail("an.nguyen@gmail.com").orElseThrow();
-        User bich = userRepository.findByEmail("bich.tran@gmail.com").orElseThrow();
-        Vehicle vehicle1 = vehicleRepository.findAll().get(0);
-        Vehicle vehicle2 = vehicleRepository.findAll().get(1);
+        if (orderRepository.count() > 0) return;
 
-        // 1. ĐƠN HÀNG HỢP LỆ (Để test Đăng bán thành công)
-        Order o1 = createTestOrder("ORD-AN-OK-01", an.getId(), vehicle1, 5, 8, OrderStatus.CONFIRMED);
+        User user1 = userRepository.findByEmail("user1@gmail.com").orElse(null);
+        User user2 = userRepository.findByEmail("user2@gmail.com").orElse(null);
+        List<Vehicle> vehicles = vehicleRepository.findAll();
         
-        // 2. ĐƠN HÀNG QUÁ HẠN (Để test lỗi > 24h)
-        // Ngày mai bắt đầu rồi -> Chỉ còn < 24h -> Sẽ báo lỗi khi đăng bán
-        Order o2 = createTestOrder("ORD-AN-EXPIRED", an.getId(), vehicle2, 1, 3, OrderStatus.CONFIRMED);
+        if (user1 == null || user2 == null || vehicles.size() < 5) return;
 
-        // 3. ĐƠN HÀNG CỦA NGƯỜI KHÁC (Để test lỗi Không có quyền)
-        Order o3 = createTestOrder("ORD-BICH-OK-01", bich.getId(), vehicle1, 10, 12, OrderStatus.CONFIRMED);
-
-        orderRepository.saveAll(List.of(o1, o2, o3));
-
-        System.out.println("  ✔ Đã nạp 3 đơn hàng mẫu để test:");
-        System.out.println("    - Của An (Hợp lệ): " + o1.getId());
-        System.out.println("    - Của An (Quá hạn 24h): " + o2.getId());
-        System.out.println("    - Của Bích (Để test quyền): " + o3.getId());
+        // Tạo một số đơn hàng cho các xe khác nhau để có dữ liệu thống kê
+        orderRepository.saveAll(List.of(
+            createOrder("ORD-DEMO-01", user1.getId(), vehicles.get(0).getId(), LocalDate.now().minusDays(10), LocalDate.now().minusDays(7), OrderStatus.COMPLETED),
+            createOrder("ORD-DEMO-02", user2.getId(), vehicles.get(0).getId(), LocalDate.now().minusDays(5), LocalDate.now().minusDays(2), OrderStatus.COMPLETED),
+            createOrder("ORD-DEMO-03", user1.getId(), vehicles.get(1).getId(), LocalDate.now().minusDays(8), LocalDate.now().minusDays(5), OrderStatus.COMPLETED),
+            createOrder("ORD-DEMO-04", user2.getId(), vehicles.get(2).getId(), LocalDate.now().minusDays(3), LocalDate.now().plusDays(2), OrderStatus.RENTING),
+            createOrder("ORD-DEMO-05", user1.getId(), vehicles.get(3).getId(), LocalDate.now().minusDays(1), LocalDate.now().plusDays(3), OrderStatus.CONFIRMED),
+            createOrder("ORD-DEMO-06", user2.getId(), vehicles.get(4).getId(), LocalDate.now().plusDays(2), LocalDate.now().plusDays(5), OrderStatus.PENDING)
+        ));
+        System.out.println("  ✔ Đã nạp 6 đơn hàng mẫu cho bản tin thống kê.");
     }
 
-    private Order createTestOrder(String code, String userId, Vehicle vehicle, 
-                                  int plusDaysStart, int plusDaysEnd, OrderStatus status) {
-        Order order = new Order();
-        order.setOrderCode(code);
-        order.setUserId(userId);
-        order.setVehicleId(vehicle.getId());
-        order.setStartDate(LocalDate.now().plusDays(plusDaysStart));
-        order.setEndDate(LocalDate.now().plusDays(plusDaysEnd));
-        order.setTotalDays(plusDaysEnd - plusDaysStart);
-        order.setRentalPrice(vehicle.getPricePerDay() * (plusDaysEnd - plusDaysStart));
-        order.setDepositAmount(vehicle.getDepositAmount());
-        order.setTotalAmount(order.getRentalPrice() + order.getDepositAmount());
-        order.setStatus(status);
-        order.setPaymentStatus(PaymentStatus.PAID);
-        order.setPaymentMethod(PaymentMethod.WALLET);
-        order.setIsTransferred(false);
-        return order;
+    private Order createOrder(String code, String userId, String vehicleId, LocalDate start, LocalDate end, OrderStatus status) {
+        Vehicle v = vehicleRepository.findById(vehicleId).orElseThrow();
+        Order o = new Order();
+        o.setOrderCode(code);
+        o.setUserId(userId);
+        o.setVehicleId(vehicleId);
+        o.setStartDate(start);
+        o.setEndDate(end);
+        o.setTotalDays(3);
+        o.setRentalPrice(v.getPricePerDay() * 3);
+        o.setDepositAmount(v.getDepositAmount());
+        o.setTotalAmount(o.getRentalPrice() + o.getDepositAmount());
+        o.setStatus(status);
+        o.setPaymentStatus(PaymentStatus.PAID);
+        o.setCreatedAt(start.atStartOfDay().minusDays(1));
+        return o;
     }
 
     private void seedListings() {
-        Order o1 = orderRepository.findByOrderCode("ORD-AN-OK-01").orElseThrow();
-        Vehicle v1 = vehicleRepository.findById(o1.getVehicleId()).orElseThrow();
+        if (depositListingRepository.count() > 0) return;
 
-        DepositListing listing = new DepositListing();
-        listing.setSellerId(o1.getUserId());
-        listing.setOrderId(o1.getId());
-        listing.setVehicleId(o1.getVehicleId());
-        listing.setOriginalDeposit(o1.getDepositAmount());
-        listing.setSellingPrice(o1.getDepositAmount() * 0.6); // 60%
-        listing.setPlatformFee(o1.getDepositAmount() * 0.4);
-        listing.setExpiredAt(o1.getStartDate().atStartOfDay().minusHours(24));
-        listing.setStatus(DepositListingStatus.OPEN);
+        User user1 = userRepository.findByEmail("user1@gmail.com").orElse(null);
+        Order o1 = orderRepository.findAll().stream().findFirst().orElse(null);
+        if (user1 == null || o1 == null) return;
+        
+        DepositListing l1 = new DepositListing();
+        l1.setSellerId(user1.getId());
+        l1.setOrderId(o1.getId());
+        l1.setVehicleId(o1.getVehicleId());
+        l1.setOriginalDeposit(o1.getDepositAmount());
+        l1.setSellingPrice(o1.getDepositAmount() * 0.7);
+        l1.setPlatformFee(o1.getDepositAmount() * 0.3);
+        l1.setCreatedAt(LocalDateTime.now());
+        l1.setExpiredAt(o1.getStartDate().atStartOfDay().minusHours(12));
+        l1.setStatus(DepositListingStatus.OPEN);
+        depositListingRepository.save(l1);
 
-        depositListingRepository.save(listing);
+        System.out.println("  ✔ Đã nạp tin đăng ký gửi cọc mẫu.");
+    }
 
-        // --- TẠO BÀI ĐĂNG ĐÃ HẾT HẠN (Để test Scheduler) ---
-        Order o2 = orderRepository.findByOrderCode("ORD-AN-EXPIRED").orElseThrow();
-        DepositListing expiredListing = new DepositListing();
-        expiredListing.setSellerId(o2.getUserId());
-        expiredListing.setOrderId(o2.getId());
-        expiredListing.setVehicleId(o2.getVehicleId());
-        expiredListing.setOriginalDeposit(o2.getDepositAmount());
-        expiredListing.setSellingPrice(o2.getDepositAmount() * 0.6);
-        expiredListing.setPlatformFee(o2.getDepositAmount() * 0.4);
-        // Đặt hết hạn vào 1 giờ trước
-        expiredListing.setExpiredAt(LocalDateTime.now().minusHours(1));
-        expiredListing.setStatus(DepositListingStatus.OPEN);
-
-        depositListingRepository.save(expiredListing);
-
-        System.out.println("  ✔ Đã tạo 1 bài đăng suất cọc mẫu:");
-        System.out.println("    - Của An (OPEN): " + listing.getId() + " cho xe " + v1.getName());
-        System.out.println("    - Của An (Hết hạn - Chờ quét): " + expiredListing.getId());
+    private void seedNotifications() {
+        User admin = userRepository.findByEmail("admin@shopcar.com").orElse(null);
+        if (admin != null) {
+            Notification n1 = new Notification();
+            n1.setUserId(admin.getId());
+            n1.setTitle("Hệ thống đã sẵn sàng");
+            n1.setMessage("Dữ liệu mẫu tiếng Việt đã được nạp thành công. Hãy bắt đầu trải nghiệm!");
+            n1.setType(NotificationType.SYSTEM);
+            n1.setCreatedAt(LocalDateTime.now());
+            notificationRepository.save(n1);
+        }
+        System.out.println("  ✔ Đã nạp thông báo hệ thống.");
     }
 }

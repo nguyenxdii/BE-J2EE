@@ -10,4 +10,6 @@ public interface NotificationRepository extends MongoRepository<Notification, St
     List<Notification> findByUserIdOrderByCreatedAtDesc(String userId);
     // Đếm thông báo chưa đọc — hiển thị badge đỏ trên navbar
     long countByUserIdAndIsRead(String userId, Boolean isRead);
+    
+    List<Notification> findByUserIdAndIsRead(String userId, Boolean isRead);
 }

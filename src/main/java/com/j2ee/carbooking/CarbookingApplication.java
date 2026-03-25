@@ -6,6 +6,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 
 @SpringBootApplication
 @EnableScheduling     // Bật @Scheduled cho scheduler đóng suất cọc
+@org.springframework.scheduling.annotation.EnableAsync
 public class CarbookingApplication {
     public static void main(String[] args) {
         SpringApplication.run(CarbookingApplication.class, args);

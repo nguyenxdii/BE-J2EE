@@ -19,7 +19,9 @@ public class Category {
     private String description; // Mô tả ngắn hiển thị trên trang chủ
 
     private String image; // URL icon danh mục trên Cloudinary
+    
+    private boolean hidden = false;
 
     @CreatedDate
     private LocalDateTime createdAt;
-}
+}

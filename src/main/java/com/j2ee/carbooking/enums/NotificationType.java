@@ -5,5 +5,7 @@ public enum NotificationType {
     ORDER,           // Liên quan đến đơn hàng thuê xe
     WALLET,          // Liên quan đến ví (nạp tiền, hoàn tiền)
     DEPOSIT_LISTING, // Liên quan đến suất cọc
-    VERIFY           // Liên quan đến duyệt CCCD/GPLX
+    VERIFY,          // Liên quan đến duyệt CCCD/GPLX
+    SYSTEM,          // Thông báo hệ thống chung
+    ADMIN            // Thông báo từ Admin
 }

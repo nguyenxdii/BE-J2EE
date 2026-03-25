@@ -11,6 +11,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -23,7 +25,11 @@ public class CategoryController {
 
     @GetMapping
     public List<Category> getAllCategories() {
-        return categoryRepository.findAll();
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"))) {
+            return categoryRepository.findAll();
+        }
+        return categoryRepository.findByHiddenFalse();
     }
 
     @PreAuthorize("hasRole('ADMIN')")
@@ -76,5 +82,14 @@ public class CategoryController {
         cloudinaryService.deleteByUrl(existing.getImage());
         categoryRepository.deleteById(id);
         return Map.of("deleted", true);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PatchMapping("/{id}/toggle-hide")
+    public Category toggleHideCategory(@PathVariable String id) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy danh mục"));
+        category.setHidden(!category.isHidden());
+        return categoryRepository.save(category);
     }
 }

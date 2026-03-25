@@ -1,14 +1,17 @@
 package com.j2ee.carbooking.model;
 
-import lombok.Data;
-
-// Object nhúng trong Vehicle — không có @Document
-@Data
 public class Specs {
+    private String engine;
+    private String fuelType;
+    private String transmission;
+    private Integer seats;
 
-    private String engine; // Dung tích động cơ: 110cc, 150cc, 170cc
-
-    private String fuelType; // Loại nhiên liệu: Xăng / Điện
-
-    private String transmission; // Kiểu hộp số: Tay ga / Số / Côn tay
-}
+    public String getEngine() { return engine; }
+    public void setEngine(String engine) { this.engine = engine; }
+    public String getFuelType() { return fuelType; }
+    public void setFuelType(String fuelType) { this.fuelType = fuelType; }
+    public String getTransmission() { return transmission; }
+    public void setTransmission(String transmission) { this.transmission = transmission; }
+    public Integer getSeats() { return seats; }
+    public void setSeats(Integer seats) { this.seats = seats; }
+}

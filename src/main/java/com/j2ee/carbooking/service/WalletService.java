@@ -1,16 +1,19 @@
 package com.j2ee.carbooking.service;
 
 import com.j2ee.carbooking.dto.request.*;
+import com.j2ee.carbooking.dto.response.*;
 import com.j2ee.carbooking.enums.*;
 import com.j2ee.carbooking.model.*;
 import com.j2ee.carbooking.repository.*;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class WalletService {
@@ -24,7 +27,6 @@ public class WalletService {
     private final OrderRepository orderRepository;
     private final VehicleRepository vehicleRepository;
 
-    @Autowired
     public WalletService(
             UserRepository userRepository,
             WalletTransactionRepository walletTransactionRepository,
@@ -47,7 +49,7 @@ public class WalletService {
     // ----------------------------------------------------------------
     // CHỨC NĂNG 21: Nạp tiền vào ví — tạo payment URL Momo
     // ----------------------------------------------------------------
-    public String depositViaMomo(String userId, DepositWalletRequest request)
+    public String createDeposit(String userId, DepositWalletRequest request)
             throws Exception {
 
         User user = userRepository.findById(userId)
@@ -199,11 +201,70 @@ public class WalletService {
     }
 
     // ----------------------------------------------------------------
+    // CHỨC NĂNG: Hoàn tiền vào ví (Dùng khi Admin huỷ đơn)
+    // ----------------------------------------------------------------
+    public void refundToWallet(String userId, Double amount, String orderId, String reason) {
+        User user = userRepository.findById(userId)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy user để hoàn tiền"));
+
+        double balanceBefore = user.getWalletBalance();
+        double balanceAfter = balanceBefore + amount;
+        user.setWalletBalance(balanceAfter);
+        userRepository.save(user);
+
+        // Tạo WalletTransaction REFUND
+        WalletTransaction tx = new WalletTransaction();
+        tx.setUserId(userId);
+        tx.setType(TransactionType.REFUND);
+        tx.setAmount(amount);
+        tx.setBalanceBefore(balanceBefore);
+        tx.setBalanceAfter(balanceAfter);
+        tx.setRefType("ORDER");
+        tx.setRefId(orderId);
+        tx.setDescription("Hoàn tiền đơn " + orderId + (reason != null ? ": " + reason : ""));
+        tx.setStatus(TransactionStatus.SUCCESS);
+        walletTransactionRepository.save(tx);
+
+        // Thông báo cho user
+        notificationService.create(
+            user.getId(),
+            "Hoàn tiền thành công",
+            "Bạn đã được hoàn " + String.format("%,.0f", amount) + "đ vào ví. "
+                + "Lý do: " + (reason != null ? reason : "Hủy đơn hàng"),
+            NotificationType.WALLET,
+            orderId
+        );
+    }
+
+    // ----------------------------------------------------------------
     // CHỨC NĂNG 27: Lấy số dư ví
     // ----------------------------------------------------------------
     public Double getWalletBalance(String userId) {
         User user = userRepository.findById(userId)
             .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
         return user.getWalletBalance();
+    }
+
+    public List<TransactionResponse> getAllTransactions() {
+        List<WalletTransaction> transactions = walletTransactionRepository.findAllByOrderByCreatedAtDesc();
+        return transactions.stream().map(tx -> {
+            TransactionResponse res = new TransactionResponse();
+            res.setId(tx.getId());
+            res.setUserId(tx.getUserId());
+            res.setType(tx.getType());
+            res.setAmount(tx.getAmount());
+            res.setBalanceBefore(tx.getBalanceBefore());
+            res.setBalanceAfter(tx.getBalanceAfter());
+            res.setRefType(tx.getRefType());
+            res.setRefId(tx.getRefId());
+            res.setDescription(tx.getDescription());
+            res.setStatus(tx.getStatus());
+            res.setCreatedAt(tx.getCreatedAt());
+
+            // Lấy tên user
+            userRepository.findById(tx.getUserId()).ifPresent(u -> res.setUserName(u.getFullName()));
+
+            return res;
+        }).collect(Collectors.toList());
     }
 }

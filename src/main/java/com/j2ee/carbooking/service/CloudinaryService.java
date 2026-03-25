@@ -16,55 +16,32 @@ public class CloudinaryService {
     private final Cloudinary cloudinary;
 
     public String uploadImage(MultipartFile file, String folder) {
-        if (file == null || file.isEmpty()) {
-            throw new RuntimeException("Ảnh tải lên không hợp lệ");
-        }
         try {
-            Map<?, ?> result = cloudinary.uploader().upload(
-                    file.getBytes(),
-                    ObjectUtils.asMap(
-                            "resource_type", "image",
-                            "folder", folder
-                    )
-            );
-            return (String) result.get("secure_url");
-        } catch (IOException ex) {
-            throw new RuntimeException("Upload ảnh Cloudinary thất bại", ex);
+            Map<?, ?> uploadResult = cloudinary.uploader().upload(file.getBytes(),
+                    ObjectUtils.asMap("folder", "carbooking/" + folder));
+            return uploadResult.get("url").toString();
+        } catch (IOException e) {
+            throw new RuntimeException("Lỗi upload ảnh lên Cloudinary: " + e.getMessage());
         }
     }
 
-    public void deleteByUrl(String imageUrl) {
-        if (imageUrl == null || imageUrl.isBlank()) {
-            return;
-        }
-        String publicId = extractPublicId(imageUrl);
-        if (publicId == null) {
-            return;
-        }
+    public String upload(MultipartFile file) {
+        return uploadImage(file, "general");
+    }
+
+    public void deleteByUrl(String url) {
+        if (url == null || url.isEmpty() || !url.contains("carbooking/")) return;
         try {
+            // Parse public_id từ URL
+            // Ví dụ: http://res.cloudinary.com/.../carbooking/avatars/xyz123.jpg -> carbooking/avatars/xyz123
+            String publicId = url.substring(url.lastIndexOf("carbooking/"), url.lastIndexOf("."));
             cloudinary.uploader().destroy(publicId, ObjectUtils.emptyMap());
-        } catch (IOException ex) {
-            throw new RuntimeException("Xóa ảnh Cloudinary thất bại", ex);
+        } catch (IOException e) {
+            System.err.println("Lỗi xóa ảnh trên Cloudinary: " + e.getMessage());
         }
     }
 
-    private String extractPublicId(String imageUrl) {
-        try {
-            int uploadIdx = imageUrl.indexOf("/upload/");
-            if (uploadIdx < 0) {
-                return null;
-            }
-            String path = imageUrl.substring(uploadIdx + "/upload/".length());
-            if (path.startsWith("v")) {
-                int slash = path.indexOf('/');
-                if (slash > 0) {
-                    path = path.substring(slash + 1);
-                }
-            }
-            int dot = path.lastIndexOf('.');
-            return dot > 0 ? path.substring(0, dot) : path;
-        } catch (Exception ex) {
-            return null;
-        }
+    public void delete(String url) {
+        deleteByUrl(url);
     }
 }
