@@ -25,9 +25,10 @@ public class OrderService {
     private final MomoService momoService;
     private final NotificationService notificationService;
     private final ReviewRepository reviewRepository;
+    private final WalletService walletService;
 
     // ----------------------------------------------------------------
-    // CHỨC NĂNG 13+15: Đặt xe & Thanh toán
+    // CHỨC NĂNG 13+15: Đặt xe & Thanh toán (USER)
     // ----------------------------------------------------------------
     public OrderResponse createOrder(String userId, CreateOrderRequest request)
             throws Exception {
@@ -64,7 +65,7 @@ public class OrderService {
         }
 
         // 4. Tính tiền
-        long totalDays = request.getStartDate().until(request.getEndDate()).getDays();
+        long totalDays = java.time.temporal.ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate()) + 1;
         if (totalDays <= 0) totalDays = 1;
 
         double rentalPrice  = vehicle.getPricePerDay() * totalDays;
@@ -144,14 +145,24 @@ public class OrderService {
                 order.getId()
             );
 
+            // Thông báo cho Admin về đơn hàng mới
+            try {
+                List<User> admins = userRepository.findByRole(Role.ADMIN);
+                for (User admin : admins) {
+                    notificationService.create(admin.getId(), "Đơn đặt xe mới", 
+                        "Khách hàng " + user.getFullName() + " vừa đặt xe " + vehicle.getName() + " (" + orderCode + ")", 
+                        NotificationType.ORDER, order.getId());
+                }
+            } catch (Exception e) {
+                System.err.println("Lỗi gửi thông báo cho Admin: " + e.getMessage());
+            }
+
             return toResponse(order, vehicle, null);
 
         } else if (request.getPaymentMethod() == PaymentMethod.MOMO) {
             // --- Thanh toán bằng Momo ---
-            // Lưu order UNPAID trước
             orderRepository.save(order);
 
-            // Tạo WalletTransaction PENDING
             WalletTransaction tx = new WalletTransaction();
             tx.setUserId(userId);
             tx.setType(TransactionType.PAY);
@@ -159,7 +170,7 @@ public class OrderService {
             tx.setBalanceBefore(0.0);
             tx.setBalanceAfter(0.0);
             tx.setRefType("ORDER");
-            tx.setRefId("ORDER-" + order.getId()); // prefix ORDER- để phân biệt callback
+            tx.setRefId("ORDER-" + order.getId());
             tx.setDescription("Đặt xe " + vehicle.getName() + "|ORDER:" + order.getId());
             tx.setStatus(TransactionStatus.PENDING);
             walletTransactionRepository.save(tx);
@@ -168,17 +179,14 @@ public class OrderService {
                 .substring(0, Math.min(6, order.getId().length()))
                 + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-            // Cập nhật refId sang momoOrderId
             tx.setRefId(momoOrderId);
-            tx.setDescription("Cọc xe " + vehicle.getName() + "|ORDER:" + order.getId()); // Updated description
             walletTransactionRepository.save(tx);
 
-            // Thu tiền cọc qua Momo
-            double depositAmountToPay = order.getDepositAmount(); // Use a different variable name to avoid confusion
+            double depositAmountToPay = order.getDepositAmount();
             String orderInfo = "Coc xe " + vehicle.getName() + " | " + orderCode;
             
             String payUrl = momoService.createPaymentUrl(
-                order.getId(), (long) depositAmountToPay, orderInfo); // Changed momoOrderId to order.getId() and totalAmount to depositAmountToPay
+                order.getId(), (long) depositAmountToPay, orderInfo);
             
             return toResponse(order, vehicle, payUrl);
 
@@ -189,7 +197,7 @@ public class OrderService {
     }
 
     // ----------------------------------------------------------------
-    // CHỨC NĂNG 16: Lịch sử đơn hàng
+    // CHỨC NĂNG 16: Lịch sử đơn hàng (USER)
     // ----------------------------------------------------------------
     public List<OrderResponse> getMyOrders(String userId) {
         List<Order> orders = orderRepository.findMyHistory(userId);
@@ -203,13 +211,25 @@ public class OrderService {
     }
 
     // ----------------------------------------------------------------
+    // Lấy danh sách đơn hàng của một xe (để hiện lịch bận)
+    // ----------------------------------------------------------------
+    public List<OrderResponse> getVehicleOrders(String vehicleId) {
+        List<Order> orders = orderRepository.findByVehicleIdAndStatusIn(
+            vehicleId, 
+            List.of(OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.RENTING)
+        );
+        return orders.stream()
+            .map(order -> toResponse(order, null, null))
+            .collect(Collectors.toList());
+    }
+
+    // ----------------------------------------------------------------
     // CHỨC NĂNG 17: Xem chi tiết đơn hàng
     // ----------------------------------------------------------------
     public OrderResponse getOrderDetail(String userId, String orderId) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        // Chỉ chủ đơn (hiện tại hoặc gốc nếu đã bán) mới xem được
         boolean isOwner = order.getUserId().equals(userId);
         boolean isOriginalOwner = order.getOriginalUserId() != null && order.getOriginalUserId().equals(userId);
         
@@ -224,26 +244,22 @@ public class OrderService {
     }
 
     // ----------------------------------------------------------------
-    // CHỨC NĂNG 18: Huỷ đơn hàng
+    // CHỨC NĂNG 18: Huỷ đơn hàng (USER)
     // ----------------------------------------------------------------
     public OrderResponse cancelOrder(String userId, String orderId) {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        // 1. Chỉ chủ đơn mới huỷ được
         if (!order.getUserId().equals(userId)) {
             throw new RuntimeException("Bạn không có quyền huỷ đơn hàng này");
         }
 
-        // 2. Chỉ huỷ được khi PENDING
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new RuntimeException(
                 "Chỉ có thể huỷ đơn hàng đang ở trạng thái PENDING. "
                 + "Đơn hiện tại: " + order.getStatus());
         }
 
-        // 3. Đổi status → CANCELLED
-        // Lưu ý: tiền cọc KHÔNG hoàn lại khi user tự huỷ
         order.setStatus(OrderStatus.CANCELLED);
         orderRepository.save(order);
 
@@ -251,7 +267,6 @@ public class OrderService {
             .findById(order.getVehicleId()).orElse(null);
         String vehicleName = vehicle != null ? vehicle.getName() : "xe";
 
-        // 4. Gửi thông báo
         notificationService.create(
             userId,
             "Đơn hàng đã bị huỷ",
@@ -265,11 +280,93 @@ public class OrderService {
     }
 
     // ----------------------------------------------------------------
-    // Xử lý Momo callback cho đặt xe
-    // Gọi từ WalletService.handleMomoCallback khi orderId starts with "ORDER-"
+    // ADMIN FUNCTIONS
+    // ----------------------------------------------------------------
+    
+    // Lấy tất cả đơn hàng cho Admin (DTO)
+    public List<OrderResponse> getAllOrdersForAdmin() {
+        return orderRepository.findAllByOrderByCreatedAtDesc().stream()
+            .map(o -> {
+                Vehicle v = vehicleRepository.findById(o.getVehicleId()).orElse(null);
+                return toResponse(o, v, null);
+            })
+            .collect(Collectors.toList());
+    }
+
+    // Lấy chi tiết đơn hàng (Admin)
+    public Order getOrderById(String id) {
+        return orderRepository.findById(id)
+            .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
+    }
+
+    // Cập nhật trạng thái đơn hàng (Admin)
+    public Order updateStatus(String orderId, OrderStatus newStatus) {
+        Order order = getOrderById(orderId);
+        OrderStatus oldStatus = order.getStatus();
+
+        if (oldStatus == OrderStatus.CANCELLED || oldStatus == OrderStatus.COMPLETED) {
+            throw new RuntimeException("Không thể cập nhật trạng thái cho đơn hàng đã kết thúc");
+        }
+
+        order.setStatus(newStatus);
+        orderRepository.save(order);
+
+        String message = "";
+        switch (newStatus) {
+            case CONFIRMED:
+                message = "Đơn hàng của bạn đã được xác nhận. Vui lòng đến nhận xe đúng hẹn.";
+                break;
+            case RENTING:
+                message = "Bạn đã bắt đầu hành trình. Chúc bạn có một chuyến đi an toàn!";
+                break;
+            case COMPLETED:
+                message = "Đơn hàng đã hoàn thành. Cảm ơn bạn đã sử dụng dịch vụ!";
+                break;
+            default:
+                break;
+        }
+
+        if (!message.isEmpty()) {
+            notificationService.create(
+                order.getUserId(),
+                "Cập nhật đơn hàng",
+                message,
+                NotificationType.ORDER,
+                order.getId()
+            );
+        }
+
+        return order;
+    }
+
+    // Hủy đơn hàng và hoàn tiền (Admin)
+    public void cancelOrderForAdmin(String orderId, String reason) {
+        Order order = getOrderById(orderId);
+
+        if (order.getStatus() == OrderStatus.CANCELLED || order.getStatus() == OrderStatus.COMPLETED) {
+            throw new RuntimeException("Đơn hàng này đã kết thúc, không thể hủy");
+        }
+
+        order.setStatus(OrderStatus.CANCELLED);
+        orderRepository.save(order);
+
+        if (order.getDepositAmount() != null && order.getDepositAmount() > 0 && order.getPaymentStatus() == PaymentStatus.PAID) {
+            walletService.refundToWallet(order.getUserId(), order.getDepositAmount(), order.getId(), reason);
+        }
+
+        notificationService.create(
+            order.getUserId(),
+            "Đơn hàng bị hủy",
+            "Đơn hàng " + order.getOrderCode() + " đã bị hủy. Lý do: " + reason,
+            NotificationType.ORDER,
+            order.getId()
+        );
+    }
+
+    // ----------------------------------------------------------------
+    // Momo callback handler
     // ----------------------------------------------------------------
     public void handleOrderMomoCallback(String orderId, WalletTransaction tx) {
-        // Parse orderId từ description: "Đặt xe ...|ORDER:{orderId}"
         String description = tx.getDescription();
         int index = description.indexOf("|ORDER:");
         if (index == -1) {
@@ -286,19 +383,16 @@ public class OrderService {
         User user = userRepository.findById(order.getUserId())
             .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
 
-        // Cập nhật order → CONFIRMED + PAID
         order.setStatus(OrderStatus.CONFIRMED);
         order.setPaymentStatus(PaymentStatus.PAID);
         orderRepository.save(order);
 
-        // Cập nhật tx
         tx.setBalanceBefore(user.getWalletBalance());
-        tx.setBalanceAfter(user.getWalletBalance()); // Momo — không trừ ví
+        tx.setBalanceAfter(user.getWalletBalance());
         tx.setStatus(TransactionStatus.SUCCESS);
         tx.setRefId(order.getId());
         walletTransactionRepository.save(tx);
 
-        // Gửi thông báo
         notificationService.create(
             user.getId(),
             "Đặt xe thành công",
@@ -308,6 +402,18 @@ public class OrderService {
             NotificationType.ORDER,
             order.getId()
         );
+
+        // Thông báo cho Admin về đơn hàng Momo thành công
+        try {
+            java.util.List<User> admins = userRepository.findByRole(Role.ADMIN);
+            for (User admin : admins) {
+                notificationService.create(admin.getId(), "Thanh toán đơn hàng thành công", 
+                    "Đơn hàng " + order.getOrderCode() + " đã được thanh toán cọc qua Momo thành công.", 
+                    NotificationType.ORDER, order.getId());
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo cho Admin: " + e.getMessage());
+        }
     }
 
     // ----------------------------------------------------------------
@@ -346,6 +452,10 @@ public class OrderService {
         res.setUpdatedAt(order.getUpdatedAt());
         res.setPayUrl(payUrl);
         res.setReviewed(reviewRepository.existsByOrderId(order.getId()));
+
+        // Thông tin khách hàng
+        res.setUserId(order.getUserId());
+        userRepository.findById(order.getUserId()).ifPresent(u -> res.setUserName(u.getFullName()));
 
         return res;
     }

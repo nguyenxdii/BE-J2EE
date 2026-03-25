@@ -1,19 +1,22 @@
 package com.j2ee.carbooking.model;
 
 import com.j2ee.carbooking.enums.VerifyStatus;
-import lombok.Data;
 
-// Không có @Document vì đây là object nhúng trong User, không phải collection riêng
-@Data
 public class Identity {
+    private String cccdFront;
+    private String cccdBack;
+    private String drivingLicense;
+    private VerifyStatus verifyStatus = VerifyStatus.PENDING;
+    private String rejectReason;
 
-    private String cccdFront; // URL ảnh mặt trước CCCD trên Cloudinary
-
-    private String cccdBack; // URL ảnh mặt sau CCCD trên Cloudinary
-
-    private String drivingLicense; // URL ảnh GPLX trên Cloudinary
-
-    private VerifyStatus verifyStatus = VerifyStatus.PENDING; // Mặc định PENDING khi upload
-
-    private String rejectReason; // Lý do từ chối — hiển thị để user biết cần sửa gì
-}
+    public String getCccdFront() { return cccdFront; }
+    public void setCccdFront(String cccdFront) { this.cccdFront = cccdFront; }
+    public String getCccdBack() { return cccdBack; }
+    public void setCccdBack(String cccdBack) { this.cccdBack = cccdBack; }
+    public String getDrivingLicense() { return drivingLicense; }
+    public void setDrivingLicense(String drivingLicense) { this.drivingLicense = drivingLicense; }
+    public VerifyStatus getVerifyStatus() { return verifyStatus; }
+    public void setVerifyStatus(VerifyStatus verifyStatus) { this.verifyStatus = verifyStatus; }
+    public String getRejectReason() { return rejectReason; }
+    public void setRejectReason(String rejectReason) { this.rejectReason = rejectReason; }
+}

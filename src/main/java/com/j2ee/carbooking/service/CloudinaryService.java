@@ -25,8 +25,12 @@ public class CloudinaryService {
         }
     }
 
+    public String upload(MultipartFile file) {
+        return uploadImage(file, "general");
+    }
+
     public void deleteByUrl(String url) {
-        if (url == null || !url.contains("carbooking/")) return;
+        if (url == null || url.isEmpty() || !url.contains("carbooking/")) return;
         try {
             // Parse public_id từ URL
             // Ví dụ: http://res.cloudinary.com/.../carbooking/avatars/xyz123.jpg -> carbooking/avatars/xyz123
@@ -35,5 +39,9 @@ public class CloudinaryService {
         } catch (IOException e) {
             System.err.println("Lỗi xóa ảnh trên Cloudinary: " + e.getMessage());
         }
+    }
+
+    public void delete(String url) {
+        deleteByUrl(url);
     }
 }

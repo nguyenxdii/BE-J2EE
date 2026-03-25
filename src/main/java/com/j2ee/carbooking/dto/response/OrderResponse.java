@@ -12,6 +12,8 @@ import java.time.LocalDateTime;
 public class OrderResponse {
     private String id;
     private String orderCode;
+    private String userId;
+    private String userName;
 
     // Thông tin xe (enrich từ vehicles)
     private String vehicleId;

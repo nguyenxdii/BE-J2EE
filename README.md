@@ -1,49 +1,56 @@
-# Backend - ShopCar (API Dịch vụ đặt xe)
+# ShopCar Backend - Hệ thống API Đặt xe
 
-Phần Backend của dự án ShopCar được xây dựng trên nền tảng Java Spring Boot, cung cấp các API mạnh mẽ cho hệ thống quản lý xe và người dùng.
+Phần Backend của dự án ShopCar được xây dựng trên nền tảng Java Spring Boot, cung cấp hệ thống API mạnh mẽ cho việc quản lý xe, xác thực người dùng và xử lý giao dịch.
 
-## 🚀 Hướng dẫn khởi chạy
+## Hướng dẫn khởi chạy
 
-1. **Yêu cầu hệ thống**:
-   - Java 17+
-   - MongoDB (Local hoặc Atlas) đang chạy tại `localhost:27017`.
+### Yêu cầu hệ thống
 
-2. **Cấu hình Environment**:
-   - Sao chép file mẫu:
+1. **Điều kiện tiên quyết**:
+   - Java 17 hoặc cao hơn
+   - MongoDB (Local hoặc Atlas) đang chạy tại `localhost:27017`
+
+2. **Cấu hình môi trường**:
+   - File mẫu:
      ```bash
      cp src/main/resources/application.properties.example src/main/resources/application.properties
      ```
-   - Chỉnh sửa URI MongoDB, JWT Secret, và các thông số Cloudinary/Mail trong file mới tạo.
+   - Cấu hình MongoDB URI, JWT Secret, thông tin Cloudinary và cấu hình Mail Server trong file vừa tạo.
 
-3. **Khởi chạy ứng dụng**:
-   - **Windows**: `.\mvnw.cmd spring-boot:run`
-   - **IntelliJ**: Mở project và Run file `CarbookingApplication.java`.
+3. **Thực thi**:
+   - **Windows CLI**: `.\mvnw.cmd spring-boot:run`
+   - **IDE (IntelliJ/Eclipse)**: Chạy class chính `CarbookingApplication.java`.
 
-4. **API Base URL**: `http://localhost:8080/api`
+4. **URL API cơ sở**: `http://localhost:8080/api`
 
-## 🛠 Công nghệ sử dụng
+## Công nghệ sử dụng
+
 - **Framework**: Spring Boot 3.x (Java 17)
-- **Database**: MongoDB (Spring Data MongoDB)
-- **Bảo mật**: Spring Security & JWT (Cấu hình RBAC - Role Based Access Control)
-- **Tiện ích**: Lombok, Validation API
-- **Data Seeding**: Tự động khởi tạo dữ liệu mẫu (Admin, User, Cars, Categories) khi ứng dụng chạy lần đầu.
+   - **Lưu trữ**: MongoDB (Spring Data MongoDB)
+   - **Bảo mật**: Spring Security & JWT (Kiểm soát truy cập dựa trên vai trò - RBAC)
+   - **Tiện ích**: Lombok, Validation API
+   - **Khởi tạo dữ liệu**: Tự động tạo dữ liệu mẫu (Admin, User, Xe, Danh mục) trong lần chạy đầu tiên.
 
-## 📁 Cấu trúc gói (Packages)
+## Cấu trúc dự án
+
 ```text
 com.j2ee.carbooking/
-├── config/          # Cấu hình Security, CORS, MongoDB Auditing
-├── controller/      # API Endpoints (Auth, Vehicle, Category, v.v.)
-├── dto/             # Request/Response data objects (AuthRequest, RegisterRequest)
-├── enums/           # Trạng thái xe, Role người dùng (ADMIN, USER)
-├── model/           # Các thực thể dữ liệu (Entities) lưu trữ trong MongoDB
-├── repository/      # Giao diện tương tác với cơ sở dữ liệu
-├── security/        # JWT Filter, JwtUtils, UserDetails implementation
-├── service/         # Xử lý logic nghiệp vụ (AuthService, UserService)
-└── util/            # DataSeeder khởi tạo dữ liệu demo
+├── config/          # Cấu hình Security, CORS và MongoDB Auditing
+├── controller/      # Các Endpoint API (Auth, Xe, Danh mục, Quản trị)
+├── dto/             # Đối tượng chuyển đổi dữ liệu (Requests & Responses)
+├── enums/           # Định nghĩa các trạng thái Xe, Đơn hàng và Vai trò người dùng
+├── exception/       # Xử lý ngoại lệ tập trung và định nghĩa lỗi tùy chỉnh
+├── model/           # Các thực thể dữ liệu lưu trữ trong MongoDB
+├── repository/      # Lớp giao diện tương tác với cơ sở dữ liệu
+├── security/        # Triển khai bộ lọc JWT và cấu hình bảo mật
+├── service/         # Triển khai logic nghiệp vụ lõi
+└── util/            # Các lớp tiện ích và Data Seeder cho môi trường demo
 ```
 
-## ✨ Điểm nổi bật
-- **Hệ thống xác thực (Auth)**: Sử dụng JWT (JSON Web Token) để quản lý phiên đăng nhập an toàn.
-- **Phân quyền người dùng**: Phân biệt quyền giữa khách hàng (USER) và người quản trị (ADMIN).
-- **Cấu hình Auditor**: Tự động ghi nhận `createdAt` và `updatedAt` cho mọi bản ghi.
-- **Tương tác linh hoạt**: Hỗ trợ CORS cho phép Frontend React giao tiếp an toàn.
+## Các tính năng chính
+
+- **Hệ thống xác thực**: Quản lý đăng nhập và phiên làm việc bảo mật bằng JSON Web Token (JWT).
+- **Kiểm soát truy cập**: Phân quyền nghiêm ngặt giữa khách hàng (USER) và quản trị viên (ADMIN).
+- **Kiểm tra tự động (Auditing)**: Cơ chế tự động ghi lại thời gian tạo và cập nhật cho tất cả bản ghi dữ liệu.
+- **Chia sẻ tài nguyên nguồn gốc chéo (CORS)**: Được cấu hình sẵn để giao tiếp an toàn với Frontend React.
+- **Xử lý bất đồng bộ**: Tích hợp dịch vụ gửi mail (OTP, thông báo) sử dụng @Async của Spring.

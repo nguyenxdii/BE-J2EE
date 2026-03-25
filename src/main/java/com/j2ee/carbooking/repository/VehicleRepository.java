@@ -13,6 +13,11 @@ public interface VehicleRepository extends MongoRepository<Vehicle, String> {
     List<Vehicle> findByCategoryId(String categoryId);
     long countByCategoryId(String categoryId);
     List<Vehicle> findByStatus(VehicleStatus status);
+    List<Vehicle> findAllByStatusOrderByCreatedAtDesc(VehicleStatus status);
+
     // Tìm xe nổi bật cho trang chủ — lấy top avgRating
     List<Vehicle> findTop8ByStatusOrderByAvgRatingDesc(VehicleStatus status);
+
+    // Tìm xe mới nhất cho trang chủ
+    List<Vehicle> findTop8ByStatusOrderByCreatedAtDesc(VehicleStatus status);
 }

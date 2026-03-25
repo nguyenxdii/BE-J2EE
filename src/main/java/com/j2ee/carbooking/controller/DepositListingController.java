@@ -1,70 +1,68 @@
 package com.j2ee.carbooking.controller;
 
 import com.j2ee.carbooking.dto.request.*;
-import com.j2ee.carbooking.dto.response.*;
+import com.j2ee.carbooking.dto.response.AppApiResponse;
+import com.j2ee.carbooking.dto.response.BuyDepositListingResponse;
+import com.j2ee.carbooking.dto.response.DepositListingResponse;
 import com.j2ee.carbooking.service.DepositListingService;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/deposits")
-@RequiredArgsConstructor
 public class DepositListingController {
 
     private final DepositListingService depositListingService;
 
-    // POST /api/deposits/listings — đăng bán suất cọc (cần đăng nhập)
+    public DepositListingController(DepositListingService depositListingService) {
+        this.depositListingService = depositListingService;
+    }
+
     @PostMapping("/listings")
-    public ResponseEntity<ApiResponse<DepositListingResponse>> createListing(
-            @AuthenticationPrincipal UserDetails userDetails,
+    public ResponseEntity<AppApiResponse<DepositListingResponse>> createListing(
+            @RequestAttribute String userId,
             @Valid @RequestBody CreateDepositListingRequest request) {
 
         DepositListingResponse data =
-            depositListingService.createListing(userDetails.getUsername(), request);
+            depositListingService.createListing(userId, request);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Đăng bán suất cọc thành công", data));
+            AppApiResponse.success("Đăng bán suất cọc thành công", data));
     }
 
-    // GET /api/deposits/listings — xem marketplace (không cần đăng nhập)
     @GetMapping("/listings")
-    public ResponseEntity<ApiResponse<List<DepositListingResponse>>> getOpenListings() {
+    public ResponseEntity<AppApiResponse<List<DepositListingResponse>>> getOpenListings() {
 
         List<DepositListingResponse> data =
             depositListingService.getOpenListings();
 
         return ResponseEntity.ok(
-            ApiResponse.success("Danh sách suất cọc", data));
+            AppApiResponse.success("Danh sách suất cọc", data));
     }
 
-    // DELETE /api/deposits/listings/{id} — xoá bài đăng (cần đăng nhập)
     @DeleteMapping("/listings/{id}")
-    public ResponseEntity<ApiResponse<?>> cancelListing(
-            @AuthenticationPrincipal UserDetails userDetails,
+    public ResponseEntity<AppApiResponse<Void>> cancelListing(
+            @RequestAttribute String userId,
             @PathVariable String id) {
 
-        depositListingService.cancelListing(userDetails.getUsername(), id);
+        depositListingService.cancelListing(userId, id);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Đã xoá bài đăng suất cọc"));
+            AppApiResponse.success("Đã xoá bài đăng suất cọc"));
     }
 
-    // POST /api/deposits/buy — mua suất cọc (cần đăng nhập)
     @PostMapping("/buy")
-    public ResponseEntity<ApiResponse<BuyDepositListingResponse>> buyListing(
-            @AuthenticationPrincipal UserDetails userDetails,
+    public ResponseEntity<AppApiResponse<BuyDepositListingResponse>> buyListing(
+            @RequestAttribute String userId,
             @Valid @RequestBody BuyDepositListingRequest request) throws Exception {
 
         BuyDepositListingResponse data =
-            depositListingService.buyListing(userDetails.getUsername(), request);
+            depositListingService.buyListing(userId, request);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Xử lý mua suất cọc thành công", data));
+            AppApiResponse.success("Xử lý mua suất cọc thành công", data));
     }
 }

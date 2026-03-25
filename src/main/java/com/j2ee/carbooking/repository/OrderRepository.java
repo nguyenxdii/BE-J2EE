@@ -12,6 +12,8 @@ import java.util.Optional;
 public interface OrderRepository extends MongoRepository<Order, String> {
     @Query(value = "{$or: [{userId: ?0}, {originalUserId: ?0, isTransferred: true}]}", sort = "{createdAt: -1}")
     List<Order> findMyHistory(String userId);
+
+    List<Order> findByVehicleIdAndStatusIn(String vehicleId, List<OrderStatus> statuses);
     
     List<Order> findByUserId(String userId);
     List<Order> findByVehicleId(String vehicleId);
@@ -49,4 +51,6 @@ public interface OrderRepository extends MongoRepository<Order, String> {
 
     // Thống kê — đếm đơn theo trạng thái
     long countByStatus(OrderStatus status);
+
+    List<Order> findAllByOrderByCreatedAtDesc();
 }

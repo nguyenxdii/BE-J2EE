@@ -24,4 +24,4 @@ public class Category {
 
     @CreatedDate
     private LocalDateTime createdAt;
-}
+}

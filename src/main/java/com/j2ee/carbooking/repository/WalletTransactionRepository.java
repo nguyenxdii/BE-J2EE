@@ -11,6 +11,9 @@ public interface WalletTransactionRepository extends MongoRepository<WalletTrans
     // Lấy lịch sử giao dịch của user, mới nhất trước
     List<WalletTransaction> findByUserIdOrderByCreatedAtDesc(String userId);
 
+    // Lấy toàn bộ giao dịch cho Admin
+    List<WalletTransaction> findAllByOrderByCreatedAtDesc();
+
     // Tìm transaction theo orderId và status — dùng cho callback
     Optional<WalletTransaction> findByRefIdAndStatus(String refId, TransactionStatus status);
 }

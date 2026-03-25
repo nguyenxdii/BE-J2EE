@@ -14,6 +14,7 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final CloudinaryService cloudinaryService;
+    private final NotificationService notificationService;
 
     // Lấy thông tin cá nhân
     public User getProfile(String userId) {
@@ -54,7 +55,22 @@ public class UserService {
             identity.setDrivingLicense(cloudinaryService.uploadImage(drivingLicense, "kyc"));
         }
 
+        identity.setVerifyStatus(com.j2ee.carbooking.enums.VerifyStatus.PENDING);
         user.setIdentity(identity);
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Thông báo cho tất cả ADMIN
+        try {
+            java.util.List<User> admins = userRepository.findByRole(com.j2ee.carbooking.enums.Role.ADMIN);
+            for (User admin : admins) {
+                notificationService.create(admin.getId(), "Yêu cầu xác minh mới", 
+                    "Người dùng " + user.getFullName() + " vừa nộp hồ sơ xác minh danh tính.", 
+                    com.j2ee.carbooking.enums.NotificationType.SYSTEM, null);
+            }
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi thông báo cho Admin: " + e.getMessage());
+        }
+
+        return savedUser;
     }
 }

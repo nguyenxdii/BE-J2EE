@@ -1,7 +1,7 @@
 package com.j2ee.carbooking.controller;
 
 import com.j2ee.carbooking.dto.request.CreateOrderRequest;
-import com.j2ee.carbooking.dto.response.ApiResponse;
+import com.j2ee.carbooking.dto.response.AppApiResponse;
 import com.j2ee.carbooking.dto.response.OrderResponse;
 import com.j2ee.carbooking.service.OrderService;
 import jakarta.validation.Valid;
@@ -22,7 +22,7 @@ public class OrderController {
 
     // POST /api/orders — đặt xe (cần đăng nhập)
     @PostMapping
-    public ResponseEntity<ApiResponse<OrderResponse>> createOrder(
+    public ResponseEntity<AppApiResponse<OrderResponse>> createOrder(
             @AuthenticationPrincipal UserDetails userDetails,
             @Valid @RequestBody CreateOrderRequest request) throws Exception {
 
@@ -30,24 +30,24 @@ public class OrderController {
             userDetails.getUsername(), request);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Đặt xe thành công", data));
+            AppApiResponse.success("Đặt xe thành công", data));
     }
 
     // GET /api/orders/my — lịch sử đơn hàng (cần đăng nhập)
     @GetMapping("/my")
-    public ResponseEntity<ApiResponse<List<OrderResponse>>> getMyOrders(
+    public ResponseEntity<AppApiResponse<List<OrderResponse>>> getMyOrders(
             @AuthenticationPrincipal UserDetails userDetails) {
 
         List<OrderResponse> data =
             orderService.getMyOrders(userDetails.getUsername());
 
         return ResponseEntity.ok(
-            ApiResponse.success("Lịch sử đơn hàng", data));
+            AppApiResponse.success("Lịch sử đơn hàng", data));
     }
 
     // GET /api/orders/{id} — chi tiết đơn hàng (cần đăng nhập)
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<OrderResponse>> getOrderDetail(
+    public ResponseEntity<AppApiResponse<OrderResponse>> getOrderDetail(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String id) {
 
@@ -55,12 +55,12 @@ public class OrderController {
             userDetails.getUsername(), id);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Chi tiết đơn hàng", data));
+            AppApiResponse.success("Chi tiết đơn hàng", data));
     }
 
     // PUT /api/orders/{id}/cancel — huỷ đơn (cần đăng nhập)
     @PutMapping("/{id}/cancel")
-    public ResponseEntity<ApiResponse<OrderResponse>> cancelOrder(
+    public ResponseEntity<AppApiResponse<OrderResponse>> cancelOrder(
             @AuthenticationPrincipal UserDetails userDetails,
             @PathVariable String id) {
 
@@ -68,6 +68,17 @@ public class OrderController {
             userDetails.getUsername(), id);
 
         return ResponseEntity.ok(
-            ApiResponse.success("Đã huỷ đơn hàng", data));
+            AppApiResponse.success("Đã huỷ đơn hàng", data));
+    }
+
+    // GET /api/orders/vehicle/{vehicleId} — lấy lịch bận của xe
+    @GetMapping("/vehicle/{vehicleId}")
+    public ResponseEntity<AppApiResponse<List<OrderResponse>>> getVehicleOrders(
+            @PathVariable String vehicleId) {
+
+        List<OrderResponse> data = orderService.getVehicleOrders(vehicleId);
+
+        return ResponseEntity.ok(
+            AppApiResponse.success("Lịch bận của xe", data));
     }
 }

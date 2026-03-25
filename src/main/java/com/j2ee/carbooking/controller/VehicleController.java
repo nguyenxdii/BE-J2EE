@@ -30,7 +30,7 @@ public class VehicleController {
 
     @GetMapping
     public List<Vehicle> getAllVehicles() {
-        return vehicleRepository.findByStatus(VehicleStatus.AVAILABLE);
+        return vehicleRepository.findAllByStatusOrderByCreatedAtDesc(VehicleStatus.AVAILABLE);
     }
 
     @GetMapping("/{id}")
@@ -40,7 +40,7 @@ public class VehicleController {
 
     @GetMapping("/featured")
     public List<Vehicle> getFeaturedVehicles() {
-        return vehicleRepository.findTop8ByStatusOrderByAvgRatingDesc(VehicleStatus.AVAILABLE);
+        return vehicleRepository.findTop8ByStatusOrderByCreatedAtDesc(VehicleStatus.AVAILABLE);
     }
 
     @GetMapping("/category/{categoryId}")
@@ -48,7 +48,6 @@ public class VehicleController {
         return vehicleRepository.findByCategoryId(categoryId);
     }
 
-    // GET /api/vehicles/search?keyword=...&categoryId=...&brand=...&minPrice=...&maxPrice=...&rentalDate=yyyy-MM-dd&sort=priceAsc|priceDesc|ratingDesc
     @GetMapping("/search")
     public List<Vehicle> searchVehicles(
             @RequestParam(required = false) String keyword,

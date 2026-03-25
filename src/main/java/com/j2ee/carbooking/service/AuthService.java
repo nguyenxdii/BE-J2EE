@@ -29,7 +29,7 @@ public class AuthService {
     @Value("${app.frontend-url:http://localhost:5173}")
     private String frontendUrl;
 
-    // Đăng ký — điền form tạo tài khoản luôn
+    // Đăng ký trực tiếp (không OTP)
     public AuthResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email đã được sử dụng");
@@ -53,18 +53,14 @@ public class AuthService {
     // ĐĂNG KÝ BƯỚC 1: Gửi OTP về email
     // ----------------------------------------------------------------
     public void sendRegisterOtp(RegisterRequest request) {
-        // Kiểm tra email đã tồn tại chưa
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email đã được sử dụng");
         }
 
-        // Xoá OTP cũ nếu có
         otpTokenRepository.deleteByEmailAndType(request.getEmail(), "REGISTER");
 
-        // Sinh OTP 6 số
         String otp = String.format("%06d", new java.util.Random().nextInt(999999));
 
-        // Lưu OTP vào DB
         OtpToken otpToken = new OtpToken();
         otpToken.setEmail(request.getEmail());
         otpToken.setToken(otp);
@@ -73,7 +69,6 @@ public class AuthService {
         otpToken.setUsed(false);
         otpTokenRepository.save(otpToken);
 
-        // Gửi email
         emailService.sendOtpRegister(request.getEmail(), otp);
     }
 
@@ -81,26 +76,21 @@ public class AuthService {
     // ĐĂNG KÝ BƯỚC 2: Xác minh OTP → Tạo tài khoản
     // ----------------------------------------------------------------
     public AuthResponse verifyRegisterOtp(RegisterRequest request, String otp) {
-        // Tìm OTP
         OtpToken otpToken = otpTokenRepository
             .findByEmailAndTokenAndType(request.getEmail(), otp, "REGISTER")
             .orElseThrow(() -> new RuntimeException("OTP không đúng hoặc đã hết hạn"));
 
-        // Kiểm tra hết hạn
         if (otpToken.getExpiredAt().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("OTP đã hết hạn. Vui lòng yêu cầu mã mới");
         }
 
-        // Kiểm tra đã dùng chưa
         if (otpToken.getUsed()) {
             throw new RuntimeException("OTP đã được sử dụng");
         }
 
-        // Đánh dấu đã dùng
         otpToken.setUsed(true);
         otpTokenRepository.save(otpToken);
 
-        // Tạo tài khoản
         User user = new User();
         user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
@@ -119,14 +109,11 @@ public class AuthService {
     // QUÊN MẬT KHẨU: Gửi link reset về email
     // ----------------------------------------------------------------
     public void forgotPassword(ForgotPasswordRequest request) {
-        // Kiểm tra email tồn tại
         userRepository.findByEmail(request.getEmail())
             .orElseThrow(() -> new RuntimeException("Email không tồn tại trong hệ thống"));
 
-        // Xoá token cũ
         otpTokenRepository.deleteByEmailAndType(request.getEmail(), "RESET");
 
-        // Sinh reset token (UUID)
         String resetToken = java.util.UUID.randomUUID().toString();
 
         OtpToken otpToken = new OtpToken();
@@ -137,7 +124,6 @@ public class AuthService {
         otpToken.setUsed(false);
         otpTokenRepository.save(otpToken);
 
-        // Gửi link reset
         String resetLink = frontendUrl + "/reset-password?token=" + resetToken + "&email=" + request.getEmail();
         emailService.sendResetPassword(request.getEmail(), resetLink);
     }
@@ -146,12 +132,10 @@ public class AuthService {
     // RESET MẬT KHẨU: Xác minh token → Đổi mật khẩu mới
     // ----------------------------------------------------------------
     public void resetPassword(ResetPasswordRequest request) {
-        // Tìm token
         OtpToken otpToken = otpTokenRepository
             .findByEmailAndTokenAndType(request.getEmail(), request.getToken(), "RESET")
             .orElseThrow(() -> new RuntimeException("Link reset không hợp lệ hoặc đã hết hạn"));
 
-        // Kiểm tra hết hạn
         if (otpToken.getExpiredAt().isBefore(LocalDateTime.now())) {
             throw new RuntimeException("Link reset đã hết hạn. Vui lòng yêu cầu lại");
         }
@@ -160,14 +144,12 @@ public class AuthService {
             throw new RuntimeException("Link reset đã được sử dụng");
         }
 
-        // Cập nhật mật khẩu mới
         User user = userRepository.findByEmail(request.getEmail())
             .orElseThrow(() -> new RuntimeException("Không tìm thấy user"));
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
 
-        // Đánh dấu token đã dùng
         otpToken.setUsed(true);
         otpTokenRepository.save(otpToken);
     }

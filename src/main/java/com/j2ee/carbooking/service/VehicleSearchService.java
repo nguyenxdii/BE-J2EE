@@ -44,9 +44,17 @@ public class VehicleSearchService {
 
         keyword = keyword == null ? null : keyword.trim();
         if (keyword != null && !keyword.isBlank()) {
-            // Tìm trong field name: "Honda Wave Alpha 2022"
-            String escaped = Pattern.quote(keyword);
-            ands.add(Criteria.where("name").regex(".*" + escaped + ".*", "i"));
+            String[] words = keyword.split("\\s+");
+            List<Criteria> wordCriteria = new ArrayList<>();
+            for (String word : words) {
+                if (!word.isBlank()) {
+                    String escaped = Pattern.quote(word);
+                    wordCriteria.add(Criteria.where("name").regex(".*" + escaped + ".*", "i"));
+                }
+            }
+            if (!wordCriteria.isEmpty()) {
+                ands.add(new Criteria().andOperator(wordCriteria.toArray(new Criteria[0])));
+            }
         }
 
         if (categoryId != null && !categoryId.isBlank()) {
