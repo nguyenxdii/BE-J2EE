@@ -59,7 +59,12 @@ public class DepositListingService {
                 "Đã quá thời hạn đăng bán — cần đăng trước khi nhận xe ít nhất 24 tiếng");
         }
 
-        // 5. Kiểm tra đơn này chưa có bài đăng đang OPEN
+        // 5. Không cho phép bán lại suất cọc đã mua (Chỉ chủ gốc mới được bán)
+        if (order.getIsTransferred()) {
+            throw new RuntimeException("Suất cọc đã sang nhượng không thể tiếp tục đăng bán");
+        }
+
+        // 6. Kiểm tra đơn này chưa có bài đăng đang OPEN
         boolean alreadyListed = depositListingRepository
             .existsByOrderIdAndStatusIn(
                 request.getOrderId(),
@@ -73,9 +78,14 @@ public class DepositListingService {
         Vehicle vehicle = vehicleRepository.findById(order.getVehicleId())
             .orElseThrow(() -> new RuntimeException("Không tìm thấy xe"));
 
-        // 7. Tính giá
+        // 7. Tính giá và Validate (Tối đa 60%)
         double originalDeposit = order.getDepositAmount();
-        double sellingPrice    = originalDeposit * SELLER_RATIO;
+        double sellingPrice    = request.getSellingPrice();
+        
+        if (sellingPrice > originalDeposit * SELLER_RATIO) {
+            throw new RuntimeException("Giá bán không được vượt quá 60% tiền cọc gốc");
+        }
+        
         double platformFee     = originalDeposit - sellingPrice;
 
         // expiredAt = 00:00 ngày startDate - 24h

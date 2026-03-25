@@ -24,6 +24,7 @@ public class OrderService {
     private final WalletTransactionRepository walletTransactionRepository;
     private final MomoService momoService;
     private final NotificationService notificationService;
+    private final ReviewRepository reviewRepository;
 
     // ----------------------------------------------------------------
     // CHỨC NĂNG 13+15: Đặt xe & Thanh toán
@@ -191,7 +192,7 @@ public class OrderService {
     // CHỨC NĂNG 16: Lịch sử đơn hàng
     // ----------------------------------------------------------------
     public List<OrderResponse> getMyOrders(String userId) {
-        List<Order> orders = orderRepository.findByUserId(userId);
+        List<Order> orders = orderRepository.findMyHistory(userId);
         return orders.stream()
             .map(order -> {
                 Vehicle vehicle = vehicleRepository
@@ -208,8 +209,11 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
             .orElseThrow(() -> new RuntimeException("Không tìm thấy đơn hàng"));
 
-        // Chỉ chủ đơn mới xem được
-        if (!order.getUserId().equals(userId)) {
+        // Chỉ chủ đơn (hiện tại hoặc gốc nếu đã bán) mới xem được
+        boolean isOwner = order.getUserId().equals(userId);
+        boolean isOriginalOwner = order.getOriginalUserId() != null && order.getOriginalUserId().equals(userId);
+        
+        if (!isOwner && !isOriginalOwner) {
             throw new RuntimeException("Bạn không có quyền xem đơn hàng này");
         }
 
@@ -341,6 +345,7 @@ public class OrderService {
         res.setCreatedAt(order.getCreatedAt());
         res.setUpdatedAt(order.getUpdatedAt());
         res.setPayUrl(payUrl);
+        res.setReviewed(reviewRepository.existsByOrderId(order.getId()));
 
         return res;
     }

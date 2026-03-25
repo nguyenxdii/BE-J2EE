@@ -46,4 +46,7 @@ public class OrderResponse {
 
     // Nếu thanh toán Momo — trả về payUrl
     private String payUrl;
+
+    // Đã đánh giá chưa (từ develop)
+    private Boolean reviewed;
 }
